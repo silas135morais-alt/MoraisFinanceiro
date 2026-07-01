@@ -15,7 +15,7 @@ export function AppHeader({ user }: AppHeaderProps) {
   const firstName = user.name?.split(" ")[0] ?? "Usuário";
 
   return (
-    <header className="border-b bg-background/88 backdrop-blur-xl lg:sticky lg:top-0 lg:z-20">
+    <header className="border-b bg-background/88 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
