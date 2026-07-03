@@ -21,7 +21,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const firstName = session?.user?.name?.split(" ")[0] ?? "Usuario";
   const dashboard = await getDashboard(session?.user?.id ?? "", selectedDate);
   const cards = [
-    { title: "Saldo do mes", value: currency(dashboard.summary.balance), helper: "Receitas - contas pagas - aportes", icon: Wallet, tone: "emerald" },
+    { title: "Saldo do mes", value: currency(dashboard.summary.balance), helper: "Receitas - contas e faturas pagas", icon: Wallet, tone: "emerald" },
     { title: "Receitas", value: currency(dashboard.summary.incomes), helper: "Receitas do mes", icon: ArrowUpRight, tone: "blue" },
     { title: "Despesas", value: currency(dashboard.summary.expenses), helper: "Compromissos do mes", icon: ArrowDownRight, tone: "rose" },
     { title: "Resultado realizado", value: currency(dashboard.summary.realizedMonth), helper: "Recebido - pago no mes", icon: Wallet, tone: "emerald" },
