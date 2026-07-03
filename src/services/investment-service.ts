@@ -1,13 +1,22 @@
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 import { syncTransaction } from "@/services/transaction-service";
 import { investmentContributionSchema, investmentSchema } from "@/validators/finance";
 
 export const investmentService = {
-  list(userId: string) {
-    return prisma.investment.findMany({
+  async list(userId: string) {
+    const investments = await prisma.investment.findMany({
       where: { userId, isArchived: false },
       include: { contributions: true },
       orderBy: { name: "asc" },
+    });
+
+    return investments.map((investment) => {
+      const contributionTotal = investment.contributions.reduce((sum, contribution) => sum + contribution.amount.toNumber(), 0);
+      const currentValue = Math.max(investment.currentValue.toNumber(), contributionTotal);
+
+      return { ...investment, currentValue: new Prisma.Decimal(currentValue) };
     });
   },
 
@@ -27,7 +36,15 @@ export const investmentService = {
 
   async createContribution(userId: string, payload: unknown) {
     const data = investmentContributionSchema.parse(payload);
-    const contribution = await prisma.investmentContribution.create({ data: { ...data, userId } });
+    const contribution = await prisma.$transaction(async (tx) => {
+      const created = await tx.investmentContribution.create({ data: { ...data, userId } });
+      await tx.investment.update({
+        where: { id: data.investmentId, userId },
+        data: { currentValue: { increment: data.amount } },
+      });
+
+      return created;
+    });
     const transaction = await syncTransaction({
       userId,
       categoryId: contribution.categoryId,

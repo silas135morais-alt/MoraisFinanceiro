@@ -32,6 +32,7 @@ export async function getDashboard(userId: string, date = new Date()) {
     expenses,
     paidExpenses,
     paidCardTransactions,
+    paidInvestmentContributions,
     openCardTransactions,
     investments,
     assets,
@@ -60,12 +61,20 @@ export async function getDashboard(userId: string, date = new Date()) {
       prisma.transaction.findMany({
         where: {
           userId,
+          type: "INVESTMENT_CONTRIBUTION",
+          status: "PAID",
+          date: { gte: startsAt, lte: endsAt },
+        },
+      }),
+      prisma.transaction.findMany({
+        where: {
+          userId,
           sourceType: "CreditCardPurchase",
           type: "CREDIT_CARD_PURCHASE",
           status: { notIn: ["PAID", "CANCELED"] },
         },
       }),
-      prisma.investment.findMany({ where: { userId, isArchived: false } }),
+      prisma.investment.findMany({ where: { userId, isArchived: false }, include: { contributions: true } }),
       prisma.asset.findMany({ where: { userId, isArchived: false } }),
       prisma.transaction.findMany({
         where: {
@@ -112,12 +121,17 @@ export async function getDashboard(userId: string, date = new Date()) {
   const expenseTotal = expenses.reduce((sum, expense) => sum + expense.amount.toNumber(), 0);
   const paidExpenseTotal = paidExpenses.reduce((sum, expense) => sum + expense.amount.toNumber(), 0);
   const paidCardTotal = paidCardTransactions.reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
+  const paidInvestmentContributionTotal = paidInvestmentContributions.reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
   const cardsTotal = openCardTransactions.reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
-  const investmentsTotal = investments.reduce((sum, investment) => sum + investment.currentValue.toNumber(), 0);
+  const investmentsTotal = investments.reduce((sum, investment) => {
+    const contributionTotal = investment.contributions.reduce((total, contribution) => total + contribution.amount.toNumber(), 0);
+
+    return sum + Math.max(investment.currentValue.toNumber(), contributionTotal);
+  }, 0);
   const assetsTotal = assets.reduce((sum, asset) => sum + asset.value.toNumber(), 0);
   const futureIncomeTotal = futureIncome.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const futureExpenseTotal = futureExpense.reduce((sum, item) => sum + item.amount.toNumber(), 0);
-  const realizedMonthTotal = incomeTotal - paidExpenseTotal - paidCardTotal;
+  const realizedMonthTotal = incomeTotal - paidExpenseTotal - paidCardTotal - paidInvestmentContributionTotal;
   const balanceTotal = realizedMonthTotal;
 
   return {
