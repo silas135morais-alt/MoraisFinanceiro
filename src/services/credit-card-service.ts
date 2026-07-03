@@ -30,6 +30,23 @@ export const creditCardService = {
       where: invoiceWhere,
       select: { amount: true, sourceId: true },
     });
+    const paidInstallments = await prisma.transaction.findMany({
+      where: {
+        userId,
+        sourceType: "CreditCardPurchase",
+        type: "CREDIT_CARD_PURCHASE",
+        status: "PAID",
+        ...(params.startDate || params.endDate
+          ? {
+              dueDate: {
+                ...(params.startDate ? { gte: new Date(params.startDate) } : {}),
+                ...(params.endDate ? { lte: new Date(params.endDate) } : {}),
+              },
+            }
+          : {}),
+      },
+      select: { amount: true, sourceId: true },
+    });
     const retainedInstallments = await prisma.transaction.findMany({
       where: {
         userId,
@@ -39,7 +56,7 @@ export const creditCardService = {
       },
       select: { amount: true, sourceId: true },
     });
-    const purchaseIds = [...openInstallments, ...retainedInstallments].map((item) => item.sourceId).filter(Boolean) as string[];
+    const purchaseIds = [...openInstallments, ...paidInstallments, ...retainedInstallments].map((item) => item.sourceId).filter(Boolean) as string[];
     const purchases = purchaseIds.length
       ? await prisma.creditCardPurchase.findMany({ where: { userId, id: { in: purchaseIds } }, select: { id: true, cardId: true } })
       : [];
@@ -49,12 +66,17 @@ export const creditCardService = {
       const invoiceUsed = openInstallments.reduce((sum, installment) => {
         return cardByPurchase.get(installment.sourceId ?? "") === card.id ? sum + installment.amount.toNumber() : sum;
       }, 0);
+      const invoicePaid = paidInstallments.reduce((sum, installment) => {
+        return cardByPurchase.get(installment.sourceId ?? "") === card.id ? sum + installment.amount.toNumber() : sum;
+      }, 0);
       const used = retainedInstallments.reduce((sum, installment) => {
         return cardByPurchase.get(installment.sourceId ?? "") === card.id ? sum + installment.amount.toNumber() : sum;
       }, 0);
       return {
         ...card,
         invoiceUsed,
+        invoicePaid,
+        invoiceTotal: invoiceUsed + invoicePaid,
         used,
         available: card.limit.toNumber() - used,
         nextInvoice: invoiceUsed,

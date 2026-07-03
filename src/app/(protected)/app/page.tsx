@@ -4,7 +4,6 @@ import { AlertTriangle, ArrowDownRight, ArrowUpRight, CalendarClock, CreditCard,
 import { auth } from "@/auth";
 import { DashboardChart } from "@/components/shared/dashboard-chart";
 import { MonthSelector } from "@/components/shared/month-selector";
-import { ProgressRow } from "@/components/shared/progress-row";
 import { SummaryCard } from "@/components/shared/summary-card";
 import { currency, shortDate } from "@/lib/format";
 import { firstParam, monthParamToDate } from "@/lib/month-param";
@@ -22,17 +21,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const dashboard = await getDashboard(session?.user?.id ?? "", selectedDate);
   const cards = [
     { title: "Saldo do mes", value: currency(dashboard.summary.balance), helper: "Receitas - contas, faturas e aportes", icon: Wallet, tone: "emerald" },
-    { title: "Receitas", value: currency(dashboard.summary.incomes), helper: "Receitas do mes", icon: ArrowUpRight, tone: "blue" },
-    { title: "Despesas", value: currency(dashboard.summary.expenses), helper: "Compromissos do mes", icon: ArrowDownRight, tone: "rose" },
-    { title: "Resultado realizado", value: currency(dashboard.summary.realizedMonth), helper: "Recebido - pago no mes", icon: Wallet, tone: "emerald" },
-    { title: "Cartoes", value: currency(dashboard.summary.cards), helper: "Limite comprometido", icon: CreditCard, tone: "amber" },
+    { title: "Entradas recebidas", value: currency(dashboard.summary.incomes), helper: "Receitas e resgates pagos", icon: ArrowUpRight, tone: "blue" },
+    { title: "Saidas pagas", value: currency(dashboard.summary.paidOutflows), helper: "Contas, faturas e aportes", icon: ArrowDownRight, tone: "rose" },
+    { title: "Cartoes em aberto", value: currency(dashboard.summary.cards), helper: "Limite ainda comprometido", icon: CreditCard, tone: "amber" },
     { title: "Investimentos", value: currency(dashboard.summary.investments), helper: "Carteira consolidada", icon: LineChart, tone: "violet" },
-    { title: "Patrimonio", value: currency(dashboard.summary.netWorth), helper: "Visao consolidada", icon: Landmark, tone: "slate" },
-    { title: "Vencendo", value: String(dashboard.summary.dueSoon), helper: "Contas proximas", icon: CalendarClock, tone: "blue" },
-    { title: "Atrasadas", value: String(dashboard.summary.overdue), helper: "Exigem atencao", icon: AlertTriangle, tone: "rose" },
-    { title: "Saldo previsto", value: currency(dashboard.summary.projectedBalance), helper: "Proximos 30 dias", icon: Wallet, tone: "emerald" },
-    { title: "Receitas futuras", value: currency(dashboard.summary.futureIncomes), helper: "Proximos 30 dias", icon: ArrowUpRight, tone: "blue" },
-    { title: "Despesas futuras", value: currency(dashboard.summary.futureExpenses), helper: "Proximos 30 dias", icon: ArrowDownRight, tone: "amber" },
+    { title: "Patrimonio", value: currency(dashboard.summary.netWorth), helper: "Saldo + ativos - cartoes", icon: Landmark, tone: "slate" },
   ];
 
   return (
@@ -61,6 +54,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         ))}
       </section>
 
+      <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+        <div>
+          <BalancePanel rows={dashboard.summary.balanceBreakdown} total={dashboard.summary.balance} />
+        </div>
+        <OperationsPanel
+          dueSoon={dashboard.summary.dueSoon}
+          overdue={dashboard.summary.overdue}
+          projectedBalance={dashboard.summary.projectedBalance}
+          futureIncomes={dashboard.summary.futureIncomes}
+          futureExpenses={dashboard.summary.futureExpenses}
+        />
+      </section>
+
       <section className="grid gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <DashboardChart
@@ -77,45 +83,103 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         />
       </section>
 
-      <DashboardChart
-        title="Evolucao Patrimonial"
-        subtitle="Tendencia de crescimento acumulado"
-        data={dashboard.charts.wealthEvolution}
-        variant="line"
-      />
-
-      <section className="grid gap-4 xl:grid-cols-3">
+      <section className="grid gap-4 xl:grid-cols-2">
         <Panel title="Proximos vencimentos">
-          {dashboard.upcoming.map((bill) => (
-            <ListItem key={bill.id} title={bill.title} meta={shortDate(bill.dueDate)} value={currency(Number(bill.amount))} />
-          ))}
+          {dashboard.upcoming.length ? (
+            dashboard.upcoming.map((bill) => (
+              <ListItem key={bill.id} title={bill.title} meta={shortDate(bill.dueDate)} value={currency(Number(bill.amount))} />
+            ))
+          ) : (
+            <EmptyText>Nenhuma conta vencendo neste mes.</EmptyText>
+          )}
         </Panel>
 
-        <Panel title="Ultimos lancamentos">
-          {dashboard.latest.map((entry) => (
+        <Panel title="Extrato recente do mes">
+          {dashboard.latest.length ? dashboard.latest.map((entry) => (
             <ListItem
               key={entry.id}
               title={entry.title}
               meta={`${entry.category?.name ?? "Sem categoria"} - ${shortDate(entry.date)}`}
-              value={currency(Number(entry.amount))}
+              value={`${entry.type === "INCOME" ? "+" : "-"} ${currency(Number(entry.amount))}`}
             />
-          ))}
-        </Panel>
-
-        <Panel title="Metas financeiras">
-          <div className="space-y-3">
-            {dashboard.budgets.map((budget) => (
-              <ProgressRow
-                key={budget.id}
-                title={budget.category.name}
-                current={currency(0)}
-                target={currency(Number(budget.limit))}
-                progress={0}
-              />
-            ))}
-          </div>
+          )) : (
+            <EmptyText>Nenhum lancamento encontrado no mes.</EmptyText>
+          )}
         </Panel>
       </section>
+    </div>
+  );
+}
+
+function BalancePanel({
+  rows,
+  total,
+}: {
+  rows: Array<{ label: string; amount: number; kind: string }>;
+  total: number;
+}) {
+  return (
+    <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold tracking-normal">Composicao do saldo</h3>
+          <p className="mt-1 text-sm text-muted-foreground">O que entrou e saiu do seu dinheiro neste mes.</p>
+        </div>
+        <p className="text-2xl font-semibold">{currency(total)}</p>
+      </div>
+      <div className="mt-5 divide-y rounded-lg border">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+            <span className="text-muted-foreground">{row.label}</span>
+            <span className={row.kind === "in" ? "font-semibold text-emerald-600 dark:text-emerald-300" : "font-semibold text-rose-600 dark:text-rose-300"}>
+              {row.kind === "in" ? "+" : "-"} {currency(row.amount)}
+            </span>
+          </div>
+        ))}
+        <div className="flex items-center justify-between gap-4 bg-secondary/55 px-4 py-3 text-sm font-semibold">
+          <span>Saldo final do mes</span>
+          <span>{currency(total)}</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function OperationsPanel({
+  dueSoon,
+  overdue,
+  projectedBalance,
+  futureIncomes,
+  futureExpenses,
+}: {
+  dueSoon: number;
+  overdue: number;
+  projectedBalance: number;
+  futureIncomes: number;
+  futureExpenses: number;
+}) {
+  return (
+    <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <h3 className="font-semibold tracking-normal">Operacao do mes</h3>
+      <div className="mt-4 grid gap-3">
+        <Metric icon={<CalendarClock className="size-4" />} label="Vencendo" value={`${dueSoon} conta(s)`} />
+        <Metric icon={<AlertTriangle className="size-4" />} label="Atrasadas" value={`${overdue} conta(s)`} />
+        <Metric icon={<Wallet className="size-4" />} label="Saldo previsto" value={currency(projectedBalance)} />
+        <Metric icon={<ArrowUpRight className="size-4" />} label="Receitas futuras" value={currency(futureIncomes)} />
+        <Metric icon={<ArrowDownRight className="size-4" />} label="Despesas futuras" value={currency(futureExpenses)} />
+      </div>
+    </section>
+  );
+}
+
+function Metric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-lg bg-secondary/55 px-3 py-3">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <span className="text-sm font-semibold">{value}</span>
     </div>
   );
 }
@@ -139,4 +203,8 @@ function ListItem({ title, meta, value }: { title: string; meta: string; value: 
       <p className="text-sm font-semibold">{value}</p>
     </div>
   );
+}
+
+function EmptyText({ children }: { children: ReactNode }) {
+  return <p className="rounded-lg bg-secondary/55 px-3 py-4 text-sm text-muted-foreground">{children}</p>;
 }

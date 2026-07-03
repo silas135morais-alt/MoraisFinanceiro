@@ -31,7 +31,8 @@ export default async function CartoesPage({ searchParams }: CartoesPageProps) {
   const totalLimit = cards.reduce((sum, card) => sum + Number(card.limit), 0);
   const used = cards.reduce((sum, card) => sum + card.used, 0);
   const invoiceUsed = cards.reduce((sum, card) => sum + card.invoiceUsed, 0);
-  const futureUsed = Math.max(used - invoiceUsed, 0);
+  const invoicePaid = cards.reduce((sum, card) => sum + card.invoicePaid, 0);
+  const invoiceTotal = cards.reduce((sum, card) => sum + card.invoiceTotal, 0);
   const categoryOptions = categories.map((category) => ({ id: category.id, name: category.name }));
 
   return (
@@ -47,8 +48,8 @@ export default async function CartoesPage({ searchParams }: CartoesPageProps) {
       />
       <section className="grid gap-4 md:grid-cols-3">
         <SummaryCard title="Limite total" value={currency(totalLimit)} helper={`${currency(totalLimit - used)} disponivel`} icon={WalletCards} tone="blue" />
-        <SummaryCard title="Limite comprometido" value={currency(used)} helper={`${currency(totalLimit - used)} disponivel`} icon={ReceiptText} tone="amber" />
-        <SummaryCard title="Fatura selecionada" value={currency(invoiceUsed)} helper={`${currency(futureUsed)} em parcelas futuras`} icon={CreditCard} tone="rose" />
+        <SummaryCard title="Limite comprometido" value={currency(used)} helper="Parcelas ainda nao pagas" icon={ReceiptText} tone="amber" />
+        <SummaryCard title="Fatura selecionada" value={currency(invoiceTotal)} helper={`${currency(invoicePaid)} pago, ${currency(invoiceUsed)} em aberto`} icon={CreditCard} tone="rose" />
       </section>
       <section className="grid gap-4 lg:grid-cols-3">
         {cards.map((card) => (
@@ -57,12 +58,14 @@ export default async function CartoesPage({ searchParams }: CartoesPageProps) {
               <h3 className="font-semibold">{card.name}</h3>
               <CreditCard className="size-5 text-primary" />
             </div>
-            <p className="mt-6 text-2xl font-semibold">{currency(card.invoiceUsed)}</p>
-            <p className="mt-1 text-sm text-muted-foreground">Fatura selecionada</p>
+            <p className="mt-6 text-2xl font-semibold">{currency(card.invoiceTotal)}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Total da fatura selecionada</p>
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-secondary">
               <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min((card.used / Number(card.limit)) * 100, 100)}%` }} />
             </div>
             <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+              <p>{currency(card.invoicePaid)} pago nesta fatura</p>
+              <p>{currency(card.invoiceUsed)} em aberto nesta fatura</p>
               <p>{currency(card.used)} de limite comprometido</p>
               <p>{currency(card.available)} disponivel</p>
             </div>
