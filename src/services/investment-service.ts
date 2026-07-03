@@ -98,4 +98,19 @@ export const investmentService = {
       data: { transactionId: transaction.id },
     });
   },
+
+  async removeContribution(userId: string, id: string) {
+    const contribution = await prisma.investmentContribution.findUniqueOrThrow({ where: { id, userId } });
+
+    await prisma.$transaction([
+      prisma.transaction.deleteMany({ where: { userId, sourceType: "InvestmentContribution", sourceId: id } }),
+      prisma.investment.update({
+        where: { id: contribution.investmentId, userId },
+        data: { currentValue: { decrement: contribution.amount } },
+      }),
+      prisma.investmentContribution.delete({ where: { id, userId } }),
+    ]);
+
+    return contribution;
+  },
 };

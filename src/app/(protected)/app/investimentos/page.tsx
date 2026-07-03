@@ -8,13 +8,16 @@ import { requireUserId } from "@/lib/auth-guard";
 import { currency, shortDate } from "@/lib/format";
 import { investmentService } from "@/services/investment-service";
 
+import { ContributionRowActions } from "./contribution-row-actions";
 import { InvestmentActions } from "./investment-actions";
 import { InvestmentRowActions } from "./investment-row-actions";
 
 export default async function InvestimentosPage() {
   const investments = await investmentService.list(await requireUserId());
   const total = investments.reduce((sum, item) => sum + Number(item.currentValue), 0);
-  const contributions = investments.flatMap((item) => item.contributions);
+  const contributions = investments.flatMap((item) =>
+    item.contributions.map((contribution) => ({ ...contribution, investmentName: item.name })),
+  );
   const contributionTotal = contributions.reduce((sum, item) => sum + Number(item.amount), 0);
   const chart = investments.length ? investments.map((item) => Math.max(8, Math.min((Number(item.currentValue) / Math.max(total, 1)) * 100, 100))) : [12, 18, 24, 32, 46, 58, 72, 86];
 
@@ -50,6 +53,16 @@ export default async function InvestimentosPage() {
               type: item.type,
             }}
           />,
+        ])}
+      />
+      <DataTable
+        columns={["Investimento", "Data", "Valor", "Descricao", "Acoes"]}
+        rows={contributions.map((item) => [
+          item.investmentName,
+          shortDate(item.date),
+          currency(Number(item.amount)),
+          item.description ?? "-",
+          <ContributionRowActions key={item.id} id={item.id} />,
         ])}
       />
     </div>
