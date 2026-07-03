@@ -18,20 +18,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const session = await auth();
   const params = (await searchParams) ?? {};
   const selectedDate = monthParamToDate(firstParam(params.month));
-  const firstName = session?.user?.name?.split(" ")[0] ?? "Usuário";
+  const firstName = session?.user?.name?.split(" ")[0] ?? "Usuario";
   const dashboard = await getDashboard(session?.user?.id ?? "", selectedDate);
   const cards = [
-    { title: "Saldo Atual", value: currency(dashboard.summary.balance), helper: "Contas + entradas - saídas", icon: Wallet, tone: "emerald" },
-    { title: "Receitas", value: currency(dashboard.summary.incomes), helper: "Receitas do mês", icon: ArrowUpRight, tone: "blue" },
-    { title: "Despesas", value: currency(dashboard.summary.expenses), helper: "Despesas do mês", icon: ArrowDownRight, tone: "rose" },
-    { title: "Cartões", value: currency(dashboard.summary.cards), helper: "Limite utilizado", icon: CreditCard, tone: "amber" },
+    { title: "Saldo Atual", value: currency(dashboard.summary.balance), helper: "Saldo realizado ate hoje", icon: Wallet, tone: "emerald" },
+    { title: "Receitas", value: currency(dashboard.summary.incomes), helper: "Receitas do mes", icon: ArrowUpRight, tone: "blue" },
+    { title: "Despesas", value: currency(dashboard.summary.expenses), helper: "Compromissos do mes", icon: ArrowDownRight, tone: "rose" },
+    { title: "Resultado realizado", value: currency(dashboard.summary.realizedMonth), helper: "Recebido - pago no mes", icon: Wallet, tone: "emerald" },
+    { title: "Cartoes", value: currency(dashboard.summary.cards), helper: "Limite comprometido", icon: CreditCard, tone: "amber" },
     { title: "Investimentos", value: currency(dashboard.summary.investments), helper: "Carteira consolidada", icon: LineChart, tone: "violet" },
-    { title: "Patrimônio", value: currency(dashboard.summary.netWorth), helper: "Visão consolidada", icon: Landmark, tone: "slate" },
-    { title: "Vencendo", value: String(dashboard.summary.dueSoon), helper: "Contas próximas", icon: CalendarClock, tone: "blue" },
-    { title: "Atrasadas", value: String(dashboard.summary.overdue), helper: "Exigem atenção", icon: AlertTriangle, tone: "rose" },
-    { title: "Saldo previsto", value: currency(dashboard.summary.projectedBalance), helper: "Próximos 30 dias", icon: Wallet, tone: "emerald" },
-    { title: "Receitas futuras", value: currency(dashboard.summary.futureIncomes), helper: "Próximos 30 dias", icon: ArrowUpRight, tone: "blue" },
-    { title: "Despesas futuras", value: currency(dashboard.summary.futureExpenses), helper: "Próximos 30 dias", icon: ArrowDownRight, tone: "amber" },
+    { title: "Patrimonio", value: currency(dashboard.summary.netWorth), helper: "Visao consolidada", icon: Landmark, tone: "slate" },
+    { title: "Vencendo", value: String(dashboard.summary.dueSoon), helper: "Contas proximas", icon: CalendarClock, tone: "blue" },
+    { title: "Atrasadas", value: String(dashboard.summary.overdue), helper: "Exigem atencao", icon: AlertTriangle, tone: "rose" },
+    { title: "Saldo previsto", value: currency(dashboard.summary.projectedBalance), helper: "Proximos 30 dias", icon: Wallet, tone: "emerald" },
+    { title: "Receitas futuras", value: currency(dashboard.summary.futureIncomes), helper: "Proximos 30 dias", icon: ArrowUpRight, tone: "blue" },
+    { title: "Despesas futuras", value: currency(dashboard.summary.futureExpenses), helper: "Proximos 30 dias", icon: ArrowDownRight, tone: "amber" },
   ];
 
   return (
@@ -46,8 +47,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               Bom te ver, {firstName}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Uma visão executiva do mês, com saldos, compromissos e metas em um painel
-              limpo para tomada de decisão.
+              Uma visao executiva do mes, com saldos, compromissos e metas em um painel
+              limpo para tomada de decisao.
             </p>
           </div>
           <MonthSelector />
@@ -64,7 +65,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <div className="xl:col-span-2">
           <DashboardChart
             title="Fluxo de Caixa"
-            subtitle="Entradas e saídas consolidadas no mês"
+            subtitle="Entradas e saidas consolidadas no mes"
             data={dashboard.charts.cashFlow}
             variant="line"
           />
@@ -77,25 +78,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </section>
 
       <DashboardChart
-        title="Evolução Patrimonial"
-        subtitle="Tendência de crescimento acumulado"
+        title="Evolucao Patrimonial"
+        subtitle="Tendencia de crescimento acumulado"
         data={dashboard.charts.wealthEvolution}
         variant="line"
       />
 
       <section className="grid gap-4 xl:grid-cols-3">
-        <Panel title="Próximos vencimentos">
+        <Panel title="Proximos vencimentos">
           {dashboard.upcoming.map((bill) => (
             <ListItem key={bill.id} title={bill.title} meta={shortDate(bill.dueDate)} value={currency(Number(bill.amount))} />
           ))}
         </Panel>
 
-        <Panel title="Últimos lançamentos">
+        <Panel title="Ultimos lancamentos">
           {dashboard.latest.map((entry) => (
             <ListItem
               key={entry.id}
               title={entry.title}
-              meta={`${entry.category?.name ?? "Sem categoria"} · ${shortDate(entry.date)}`}
+              meta={`${entry.category?.name ?? "Sem categoria"} - ${shortDate(entry.date)}`}
               value={currency(Number(entry.amount))}
             />
           ))}

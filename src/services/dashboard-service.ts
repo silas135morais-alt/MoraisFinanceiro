@@ -29,6 +29,7 @@ export async function getDashboard(userId: string, date = new Date()) {
 
   const [
     accounts,
+    paidTransactions,
     incomes,
     expenses,
     paidExpenses,
@@ -45,6 +46,16 @@ export async function getDashboard(userId: string, date = new Date()) {
   ] =
     await Promise.all([
       prisma.financialAccount.findMany({ where: { userId, isArchived: false } }),
+      prisma.transaction.findMany({
+        where: {
+          userId,
+          status: "PAID",
+          OR: [
+            { paidAt: { lte: now } },
+            { paidAt: null, date: { lte: now } },
+          ],
+        },
+      }),
       prisma.income.findMany({ where: { userId, status: "PAID", date: { gte: startsAt, lte: endsAt } } }),
       prisma.expense.findMany({ where: monthlyExpenseWhere }),
       prisma.expense.findMany({ where: { ...monthlyExpenseWhere, status: "PAID" } }),
@@ -120,11 +131,17 @@ export async function getDashboard(userId: string, date = new Date()) {
   const assetsTotal = assets.reduce((sum, asset) => sum + asset.value.toNumber(), 0);
   const futureIncomeTotal = futureIncome.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const futureExpenseTotal = futureExpense.reduce((sum, item) => sum + item.amount.toNumber(), 0);
-  const balanceTotal = accountBalance + incomeTotal - paidExpenseTotal - paidCardTotal;
+  const realizedMonthTotal = incomeTotal - paidExpenseTotal - paidCardTotal;
+  const balanceTotal = accountBalance + paidTransactions.reduce((sum, transaction) => {
+    const amount = transaction.amount.toNumber();
+
+    return transaction.type === "INCOME" ? sum + amount : sum - amount;
+  }, 0);
 
   return {
     summary: {
       balance: balanceTotal,
+      realizedMonth: realizedMonthTotal,
       incomes: incomeTotal,
       expenses: expenseTotal,
       cards: cardsTotal,
