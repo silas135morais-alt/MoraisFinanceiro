@@ -23,7 +23,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     { title: "Saldo do mes", value: currency(dashboard.summary.balance), helper: "Receitas - contas, faturas e aportes", icon: Wallet, tone: "emerald" },
     { title: "Entradas recebidas", value: currency(dashboard.summary.incomes), helper: "Receitas e resgates pagos", icon: ArrowUpRight, tone: "blue" },
     { title: "Saidas pagas", value: currency(dashboard.summary.paidOutflows), helper: "Contas, faturas e aportes", icon: ArrowDownRight, tone: "rose" },
-    { title: "Cartoes em aberto", value: currency(dashboard.summary.cards), helper: "Limite ainda comprometido", icon: CreditCard, tone: "amber" },
+    { title: "Fatura atual", value: currency(dashboard.summary.currentInvoice), helper: "Cartoes do mes selecionado", icon: CreditCard, tone: "amber" },
     { title: "Investimentos", value: currency(dashboard.summary.investments), helper: "Carteira consolidada", icon: LineChart, tone: "violet" },
     { title: "Patrimonio", value: currency(dashboard.summary.netWorth), helper: "Saldo + ativos - cartoes", icon: Landmark, tone: "slate" },
   ];

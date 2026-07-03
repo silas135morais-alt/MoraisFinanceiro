@@ -31,6 +31,7 @@ export async function getDashboard(userId: string, date = new Date()) {
     paidMonthTransactions,
     expenses,
     openCardTransactions,
+    currentInvoiceTransactions,
     investments,
     assets,
     upcoming,
@@ -58,6 +59,15 @@ export async function getDashboard(userId: string, date = new Date()) {
           sourceType: "CreditCardPurchase",
           type: "CREDIT_CARD_PURCHASE",
           status: { notIn: ["PAID", "CANCELED"] },
+        },
+      }),
+      prisma.transaction.findMany({
+        where: {
+          userId,
+          sourceType: "CreditCardPurchase",
+          type: "CREDIT_CARD_PURCHASE",
+          status: { notIn: ["PAID", "CANCELED"] },
+          dueDate: { gte: startsAt, lte: endsAt },
         },
       }),
       prisma.investment.findMany({ where: { userId, isArchived: false }, include: { contributions: true } }),
@@ -119,6 +129,7 @@ export async function getDashboard(userId: string, date = new Date()) {
     .reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
   const paidOutflowTotal = paidExpensesTotal + paidCardsTotal + paidInvestmentsTotal;
   const cardsTotal = openCardTransactions.reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
+  const currentInvoiceTotal = currentInvoiceTransactions.reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
   const investmentsTotal = investments.reduce((sum, investment) => {
     const contributionTotal = investment.contributions.reduce((total, contribution) => total + contribution.amount.toNumber(), 0);
 
@@ -137,6 +148,7 @@ export async function getDashboard(userId: string, date = new Date()) {
       incomes: incomeTotal,
       expenses: expenseTotal,
       cards: cardsTotal,
+      currentInvoice: currentInvoiceTotal,
       investments: investmentsTotal,
       assets: assetsTotal,
       netWorth: balanceTotal + investmentsTotal + assetsTotal - cardsTotal,
