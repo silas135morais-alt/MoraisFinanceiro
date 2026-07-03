@@ -9,6 +9,7 @@ import { currency, shortDate } from "@/lib/format";
 import { investmentService } from "@/services/investment-service";
 
 import { InvestmentActions } from "./investment-actions";
+import { InvestmentRowActions } from "./investment-row-actions";
 
 export default async function InvestimentosPage() {
   const investments = await investmentService.list(await requireUserId());
@@ -32,8 +33,24 @@ export default async function InvestimentosPage() {
       </section>
       <DashboardChart title="Historico da carteira" subtitle="Composicao atual por ativo" data={chart} variant="line" />
       <DataTable
-        columns={["Ativo", "Tipo", "Valor", "Atualizado"]}
-        rows={investments.map((item) => [item.name, item.type, currency(Number(item.currentValue)), shortDate(item.updatedAt)])}
+        columns={["Ativo", "Tipo", "Valor", "Atualizado", "Acoes"]}
+        rows={investments.map((item) => [
+          item.name,
+          item.type,
+          currency(Number(item.currentValue)),
+          shortDate(item.updatedAt),
+          <InvestmentRowActions
+            key={item.id}
+            investment={{
+              id: item.id,
+              currentValue: Number(item.currentValue),
+              institution: item.institution ?? "",
+              name: item.name,
+              targetValue: item.targetValue ? Number(item.targetValue) : null,
+              type: item.type,
+            }}
+          />,
+        ])}
       />
     </div>
   );

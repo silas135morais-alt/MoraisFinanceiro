@@ -1,8 +1,16 @@
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
+import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { syncTransaction } from "@/services/transaction-service";
 import { investmentContributionSchema, investmentSchema } from "@/validators/finance";
+
+const redemptionSchema = z.object({
+  amount: z.coerce.number().positive(),
+  date: z.string().min(1).transform((value) => new Date(value)),
+  description: z.string().optional().nullable(),
+});
 
 export const investmentService = {
   async list(userId: string) {
@@ -32,6 +40,34 @@ export const investmentService = {
 
   remove(userId: string, id: string) {
     return prisma.investment.update({ where: { id, userId }, data: { isArchived: true } });
+  },
+
+  async redeem(userId: string, id: string, payload: unknown) {
+    const data = redemptionSchema.parse(payload);
+    const investment = await prisma.investment.findUniqueOrThrow({ where: { id, userId } });
+    const currentValue = investment.currentValue.toNumber();
+
+    if (data.amount > currentValue) {
+      throw new Error("Valor de resgate maior que o saldo do investimento.");
+    }
+
+    await prisma.investment.update({
+      where: { id, userId },
+      data: { currentValue: { decrement: data.amount } },
+    });
+
+    return syncTransaction({
+      userId,
+      type: "INCOME",
+      status: "PAID",
+      title: `Resgate de ${investment.name}`,
+      amount: data.amount,
+      date: data.date,
+      paidAt: data.date,
+      description: data.description,
+      sourceId: randomUUID(),
+      sourceType: "InvestmentRedemption",
+    });
   },
 
   async createContribution(userId: string, payload: unknown) {
