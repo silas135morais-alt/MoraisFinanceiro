@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, Receipt } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Receipt } from "lucide-react";
 import Link from "next/link";
 
 import { DataTable } from "@/components/shared/data-table";
@@ -16,12 +16,21 @@ import { expenseService } from "@/services/expense-service";
 import { ExpenseCreateAction, ExpenseRowActions } from "./expense-actions";
 
 const tabs = [
+  { label: "Todas", value: "" },
   { label: "Avulsas", value: "ONE_TIME" },
   { label: "Fixas", value: "FIXED" },
   { label: "Parceladas", value: "INSTALLMENT" },
   { label: "Assinaturas", value: "SUBSCRIPTION" },
   { label: "Financiamentos", value: "FINANCING" },
 ];
+
+const typeLabels: Record<string, string> = {
+  FINANCING: "Financiamento",
+  FIXED: "Fixa",
+  INSTALLMENT: "Parcelada",
+  ONE_TIME: "Avulsa",
+  SUBSCRIPTION: "Assinatura",
+};
 
 type DespesasPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -30,20 +39,19 @@ type DespesasPageProps = {
 export default async function DespesasPage({ searchParams }: DespesasPageProps) {
   const userId = await requireUserId();
   const params = (await searchParams) ?? {};
-  const selectedType = firstParam(params.type) ?? "ONE_TIME";
+  const selectedType = firstParam(params.type) ?? "";
   const { startsAt, endsAt } = getMonthRange(monthParamToDate(firstParam(params.month)));
   const [data, monthlyData, categories, accounts] = await Promise.all([
     expenseService.list(userId, {
       pageSize: 20,
       q: firstParam(params.q),
       status: firstParam(params.status),
-      type: selectedType,
+      type: selectedType || undefined,
       startDate: startsAt.toISOString(),
       endDate: endsAt.toISOString(),
     }),
     expenseService.list(userId, {
-      pageSize: 100,
-      type: selectedType,
+      pageSize: 200,
       startDate: startsAt.toISOString(),
       endDate: endsAt.toISOString(),
     }),
@@ -55,7 +63,10 @@ export default async function DespesasPage({ searchParams }: DespesasPageProps) 
     .filter((expense) => expense.status === "PAID")
     .reduce((sum, expense) => sum + Number(expense.amount), 0);
   const monthlyPending = monthlyData.items
-    .filter((expense) => expense.status === "PENDING" || expense.status === "OVERDUE")
+    .filter((expense) => resolveTransactionStatus(expense.status, expense.dueDate ?? expense.date) === "PENDING")
+    .reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const monthlyOverdue = monthlyData.items
+    .filter((expense) => resolveTransactionStatus(expense.status, expense.dueDate ?? expense.date) === "OVERDUE")
     .reduce((sum, expense) => sum + Number(expense.amount), 0);
   const baseTabParams = new URLSearchParams();
   if (firstParam(params.month)) baseTabParams.set("month", firstParam(params.month) as string);
@@ -66,6 +77,7 @@ export default async function DespesasPage({ searchParams }: DespesasPageProps) 
   const rows = data.items.map((expense) => [
     expense.title,
     expense.category.name,
+    typeLabels[expense.type] ?? expense.type,
     shortDate(expense.dueDate ?? expense.date),
     currency(Number(expense.amount)),
     statusLabel(resolveTransactionStatus(expense.status, expense.dueDate ?? expense.date)),
@@ -92,10 +104,11 @@ export default async function DespesasPage({ searchParams }: DespesasPageProps) 
   return (
     <div className="space-y-6">
       <ExpenseCreateAction accounts={accountOptions} categories={categoryOptions} />
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard title="Total do mes" value={currency(monthlyTotal)} helper={`${monthlyData.total} despesa(s) vencem neste mes`} icon={Receipt} tone="rose" />
         <SummaryCard title="Pago no mes" value={currency(monthlyPaid)} helper="Somente despesas pagas" icon={CheckCircle2} tone="emerald" />
-        <SummaryCard title="Pendente no mes" value={currency(monthlyPending)} helper="Pendentes e atrasadas" icon={Clock} tone="amber" />
+        <SummaryCard title="Pendente" value={currency(monthlyPending)} helper="Ainda dentro do prazo" icon={Clock} tone="amber" />
+        <SummaryCard title="Vencido" value={currency(monthlyOverdue)} helper="Precisa de atencao" icon={AlertTriangle} tone="rose" />
       </section>
       <div className="flex gap-2 overflow-x-auto">
         {tabs.map((tab) => (
@@ -104,14 +117,14 @@ export default async function DespesasPage({ searchParams }: DespesasPageProps) 
             className={`inline-flex h-10 shrink-0 items-center rounded-lg border px-4 text-sm font-medium transition-colors ${
               selectedType === tab.value ? "border-primary/40 bg-primary/10 text-primary" : "bg-card text-muted-foreground"
             }`}
-            href={`/app/despesas?${new URLSearchParams([...baseTabParams.entries(), ["type", tab.value]]).toString()}`}
+            href={`/app/despesas?${tab.value ? new URLSearchParams([...baseTabParams.entries(), ["type", tab.value]]).toString() : baseTabParams.toString()}`}
           >
             {tab.label}
           </Link>
         ))}
       </div>
       <FilterBar placeholder="Pesquisar despesas" />
-      <DataTable columns={["Descricao", "Categoria", "Data", "Valor", "Status", "Acoes"]} rows={rows} />
+      <DataTable columns={["Descricao", "Categoria", "Tipo", "Data", "Valor", "Status", "Acoes"]} rows={rows} />
     </div>
   );
 }
