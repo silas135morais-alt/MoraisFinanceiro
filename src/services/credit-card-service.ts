@@ -138,7 +138,7 @@ export const creditCardService = {
     const parsed = creditCardPurchaseSchema.parse(payload);
     const { currentInstallment = 1, invoiceDate, ...data } = parsed;
     const card = await prisma.creditCard.findUniqueOrThrow({ where: { id: data.cardId, userId } });
-    const amountPerInstallment = Number(data.amount) / data.installments;
+    const installmentAmounts = splitInstallmentAmounts(Number(data.amount), data.installments);
     const firstInvoiceDate = invoiceDate ?? invoiceDueDate(data.date, card);
     const activeInstallment = Math.min(currentInstallment, data.installments);
     const invoiceAnchorDate = addMonths(firstInvoiceDate, -(activeInstallment - 1));
@@ -152,7 +152,7 @@ export const creditCardService = {
         data: {
           ...data,
           userId,
-          amount: amountPerInstallment,
+          amount: installmentAmounts[index],
           date: data.date,
           installmentNumber,
           parentPurchaseId: index === 0 ? undefined : parentId,
@@ -269,4 +269,12 @@ function invoiceDueDate(date: Date, card: { closingDay: number; dueDay: number }
   due.setDate(Math.min(card.dueDay, 28));
   due.setHours(12, 0, 0, 0);
   return due;
+}
+
+function splitInstallmentAmounts(total: number, installments: number) {
+  const totalCents = Math.round(total * 100);
+  const baseCents = Math.floor(totalCents / installments);
+  const remainder = totalCents % installments;
+
+  return Array.from({ length: installments }, (_, index) => (baseCents + (index < remainder ? 1 : 0)) / 100);
 }

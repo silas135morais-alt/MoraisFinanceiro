@@ -43,7 +43,7 @@ export function InvoicePayButton({ cardId, disabled = false, endDate, startDate 
     <div className="mt-4 space-y-2">
       <Button className="w-full" disabled={disabled || isSubmitting} size="sm" type="button" onClick={payInvoice}>
         <CheckCircle2 className="size-4" />
-        {isSubmitting ? "Pagando..." : "Pagar fatura do mes"}
+        {isSubmitting ? "Pagando..." : "Pagar fatura selecionada"}
       </Button>
       {message ? <p className="text-xs text-destructive">{message}</p> : null}
     </div>
