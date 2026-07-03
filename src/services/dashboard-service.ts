@@ -28,8 +28,6 @@ export async function getDashboard(userId: string, date = new Date()) {
   };
 
   const [
-    accounts,
-    paidTransactions,
     incomes,
     expenses,
     paidExpenses,
@@ -45,17 +43,6 @@ export async function getDashboard(userId: string, date = new Date()) {
     futureExpense,
   ] =
     await Promise.all([
-      prisma.financialAccount.findMany({ where: { userId, isArchived: false } }),
-      prisma.transaction.findMany({
-        where: {
-          userId,
-          status: "PAID",
-          OR: [
-            { paidAt: { lte: now } },
-            { paidAt: null, date: { lte: now } },
-          ],
-        },
-      }),
       prisma.income.findMany({ where: { userId, status: "PAID", date: { gte: startsAt, lte: endsAt } } }),
       prisma.expense.findMany({ where: monthlyExpenseWhere }),
       prisma.expense.findMany({ where: { ...monthlyExpenseWhere, status: "PAID" } }),
@@ -121,7 +108,6 @@ export async function getDashboard(userId: string, date = new Date()) {
       }),
     ]);
 
-  const accountBalance = accounts.reduce((sum, account) => sum + account.initialBalance.toNumber(), 0);
   const incomeTotal = incomes.reduce((sum, income) => sum + income.amount.toNumber(), 0);
   const expenseTotal = expenses.reduce((sum, expense) => sum + expense.amount.toNumber(), 0);
   const paidExpenseTotal = paidExpenses.reduce((sum, expense) => sum + expense.amount.toNumber(), 0);
@@ -132,11 +118,7 @@ export async function getDashboard(userId: string, date = new Date()) {
   const futureIncomeTotal = futureIncome.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const futureExpenseTotal = futureExpense.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const realizedMonthTotal = incomeTotal - paidExpenseTotal - paidCardTotal;
-  const balanceTotal = accountBalance + paidTransactions.reduce((sum, transaction) => {
-    const amount = transaction.amount.toNumber();
-
-    return transaction.type === "INCOME" ? sum + amount : sum - amount;
-  }, 0);
+  const balanceTotal = realizedMonthTotal;
 
   return {
     summary: {
