@@ -28,11 +28,8 @@ export async function getDashboard(userId: string, date = new Date()) {
   };
 
   const [
-    incomes,
+    paidMonthTransactions,
     expenses,
-    paidExpenses,
-    paidCardTransactions,
-    paidInvestmentContributions,
     openCardTransactions,
     investments,
     assets,
@@ -44,28 +41,18 @@ export async function getDashboard(userId: string, date = new Date()) {
     futureExpense,
   ] =
     await Promise.all([
-      prisma.income.findMany({ where: { userId, status: "PAID", date: { gte: startsAt, lte: endsAt } } }),
-      prisma.expense.findMany({ where: monthlyExpenseWhere }),
-      prisma.expense.findMany({ where: { ...monthlyExpenseWhere, status: "PAID" } }),
       prisma.transaction.findMany({
         where: {
           userId,
-          type: "CREDIT_CARD_PURCHASE",
           status: "PAID",
           OR: [
             { paidAt: { gte: startsAt, lte: endsAt } },
+            { paidAt: null, date: { gte: startsAt, lte: endsAt } },
             { paidAt: null, dueDate: { gte: startsAt, lte: endsAt } },
           ],
         },
       }),
-      prisma.transaction.findMany({
-        where: {
-          userId,
-          type: "INVESTMENT_CONTRIBUTION",
-          status: "PAID",
-          date: { gte: startsAt, lte: endsAt },
-        },
-      }),
+      prisma.expense.findMany({ where: monthlyExpenseWhere }),
       prisma.transaction.findMany({
         where: {
           userId,
@@ -117,11 +104,13 @@ export async function getDashboard(userId: string, date = new Date()) {
       }),
     ]);
 
-  const incomeTotal = incomes.reduce((sum, income) => sum + income.amount.toNumber(), 0);
+  const incomeTotal = paidMonthTransactions
+    .filter((transaction) => transaction.type === "INCOME")
+    .reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
   const expenseTotal = expenses.reduce((sum, expense) => sum + expense.amount.toNumber(), 0);
-  const paidExpenseTotal = paidExpenses.reduce((sum, expense) => sum + expense.amount.toNumber(), 0);
-  const paidCardTotal = paidCardTransactions.reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
-  const paidInvestmentContributionTotal = paidInvestmentContributions.reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
+  const paidOutflowTotal = paidMonthTransactions
+    .filter((transaction) => transaction.type !== "INCOME")
+    .reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
   const cardsTotal = openCardTransactions.reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
   const investmentsTotal = investments.reduce((sum, investment) => {
     const contributionTotal = investment.contributions.reduce((total, contribution) => total + contribution.amount.toNumber(), 0);
@@ -131,7 +120,7 @@ export async function getDashboard(userId: string, date = new Date()) {
   const assetsTotal = assets.reduce((sum, asset) => sum + asset.value.toNumber(), 0);
   const futureIncomeTotal = futureIncome.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const futureExpenseTotal = futureExpense.reduce((sum, item) => sum + item.amount.toNumber(), 0);
-  const realizedMonthTotal = incomeTotal - paidExpenseTotal - paidCardTotal - paidInvestmentContributionTotal;
+  const realizedMonthTotal = incomeTotal - paidOutflowTotal;
   const balanceTotal = realizedMonthTotal;
 
   return {
