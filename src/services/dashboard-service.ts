@@ -109,7 +109,7 @@ export async function getDashboard(userId: string, date = new Date()) {
     .reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
   const expenseTotal = expenses.reduce((sum, expense) => sum + expense.amount.toNumber(), 0);
   const paidOutflowTotal = paidMonthTransactions
-    .filter((transaction) => transaction.type === "EXPENSE" || transaction.type === "CREDIT_CARD_PURCHASE")
+    .filter((transaction) => transaction.type === "EXPENSE" || transaction.type === "CREDIT_CARD_PURCHASE" || transaction.type === "INVESTMENT_CONTRIBUTION")
     .reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
   const cardsTotal = openCardTransactions.reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
   const investmentsTotal = investments.reduce((sum, investment) => {
