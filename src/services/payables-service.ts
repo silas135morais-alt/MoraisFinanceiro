@@ -77,7 +77,7 @@ export const payablesService = {
 type PayableTransaction = Prisma.TransactionGetPayload<Record<string, never>>;
 type PayableItem = PayableTransaction & { details?: PayableTransaction[] };
 
-async function summarizeCreditCardInvoices(userId: string, items: PayableTransaction[]): Promise<PayableItem[]> {
+export async function summarizeCreditCardInvoices(userId: string, items: PayableTransaction[]): Promise<PayableItem[]> {
   const cardTransactions = items.filter((item) => item.sourceType === "CreditCardPurchase" && item.sourceId);
   const regularItems: PayableItem[] = items.filter((item) => item.sourceType !== "CreditCardPurchase");
 

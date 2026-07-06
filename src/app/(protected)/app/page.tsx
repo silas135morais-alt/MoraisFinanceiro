@@ -87,7 +87,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <Panel title="Proximos vencimentos">
           {dashboard.upcoming.length ? (
             dashboard.upcoming.map((bill) => (
-              <ListItem key={bill.id} title={bill.title} meta={shortDate(bill.dueDate)} value={currency(Number(bill.amount))} />
+              bill.details?.length ? (
+                <InvoiceListItem
+                  key={bill.id}
+                  details={bill.details}
+                  meta={shortDate(bill.dueDate)}
+                  title={bill.title}
+                  value={currency(Number(bill.amount))}
+                />
+              ) : (
+                <ListItem key={bill.id} title={bill.title} meta={shortDate(bill.dueDate)} value={currency(Number(bill.amount))} />
+              )
             ))
           ) : (
             <EmptyText>Nenhuma conta vencendo neste mes.</EmptyText>
@@ -202,6 +212,40 @@ function ListItem({ title, meta, value }: { title: string; meta: string; value: 
       </div>
       <p className="text-sm font-semibold">{value}</p>
     </div>
+  );
+}
+
+function InvoiceListItem({
+  title,
+  meta,
+  value,
+  details,
+}: {
+  title: string;
+  meta: string;
+  value: string;
+  details: { id: string; title: string; amount: unknown }[];
+}) {
+  return (
+    <details className="rounded-lg bg-secondary/55 px-3 py-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-primary">{title}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {meta} - {details.length} compra(s)
+          </p>
+        </div>
+        <p className="text-sm font-semibold">{value}</p>
+      </summary>
+      <div className="mt-3 space-y-2 border-t pt-3">
+        {details.map((item) => (
+          <div key={item.id} className="flex items-center justify-between gap-3 text-xs">
+            <span className="text-muted-foreground">{item.title}</span>
+            <span className="font-semibold">{currency(Number(item.amount))}</span>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 

@@ -1,5 +1,6 @@
 import { getMonthRange } from "@/lib/date-range";
 import { prisma } from "@/lib/prisma";
+import { summarizeCreditCardInvoices } from "@/services/payables-service";
 
 export async function getDashboard(userId: string, date = new Date()) {
   const { startsAt, endsAt } = getMonthRange(date);
@@ -140,6 +141,7 @@ export async function getDashboard(userId: string, date = new Date()) {
   const futureExpenseTotal = futureExpense.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const realizedMonthTotal = incomeTotal - paidOutflowTotal;
   const balanceTotal = realizedMonthTotal;
+  const summarizedUpcoming = await summarizeCreditCardInvoices(userId, upcoming);
 
   return {
     summary: {
@@ -152,7 +154,7 @@ export async function getDashboard(userId: string, date = new Date()) {
       investments: investmentsTotal,
       assets: assetsTotal,
       netWorth: balanceTotal + investmentsTotal + assetsTotal - cardsTotal,
-      dueSoon: upcoming.length,
+      dueSoon: summarizedUpcoming.length,
       overdue: overdue.length,
       projectedBalance: balanceTotal + futureIncomeTotal - futureExpenseTotal,
       futureIncomes: futureIncomeTotal,
@@ -171,7 +173,7 @@ export async function getDashboard(userId: string, date = new Date()) {
         { label: "Aportes em investimentos", amount: paidInvestmentsTotal, kind: "out" },
       ],
     },
-    upcoming,
+    upcoming: summarizedUpcoming,
     latest,
     charts: {
       cashFlow: [38, 44, 52, 49, 61, 68, 64, 72, 78, 83, 88, 92],
