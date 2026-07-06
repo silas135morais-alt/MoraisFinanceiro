@@ -28,7 +28,11 @@ export const payablesService = {
       prisma.transaction.findMany({ where: { ...base, dueDate: { gt: weekEnd, lte: monthEnd } }, orderBy: { dueDate: "asc" } }),
     ]);
 
-    return { today: todayItems, week: weekItems, month: monthItems };
+    return {
+      today: await summarizeCreditCardInvoices(userId, todayItems),
+      week: await summarizeCreditCardInvoices(userId, weekItems),
+      month: await summarizeCreditCardInvoices(userId, monthItems),
+    };
   },
 
   async listReceivables(userId: string) {
@@ -69,3 +73,53 @@ export const payablesService = {
     return transaction;
   },
 };
+
+type PayableTransaction = Prisma.TransactionGetPayload<Record<string, never>>;
+type PayableItem = PayableTransaction & { details?: PayableTransaction[] };
+
+async function summarizeCreditCardInvoices(userId: string, items: PayableTransaction[]): Promise<PayableItem[]> {
+  const cardTransactions = items.filter((item) => item.sourceType === "CreditCardPurchase" && item.sourceId);
+  const regularItems: PayableItem[] = items.filter((item) => item.sourceType !== "CreditCardPurchase");
+
+  if (!cardTransactions.length) {
+    return regularItems;
+  }
+
+  const purchases = await prisma.creditCardPurchase.findMany({
+    where: {
+      userId,
+      id: { in: cardTransactions.map((item) => item.sourceId).filter(Boolean) as string[] },
+    },
+    include: { card: true },
+  });
+  const cardByPurchase = new Map(purchases.map((purchase) => [purchase.id, purchase.card]));
+  const invoices = new Map<string, PayableItem>();
+
+  for (const transaction of cardTransactions) {
+    const card = cardByPurchase.get(transaction.sourceId ?? "");
+    const dueDate = transaction.dueDate ?? transaction.date;
+    const invoiceKey = `${card?.id ?? "cartao"}-${dueDate.toISOString().slice(0, 10)}`;
+    const current = invoices.get(invoiceKey);
+
+    if (current) {
+      current.amount = current.amount.plus(transaction.amount);
+      current.details = [...(current.details ?? []), transaction];
+      continue;
+    }
+
+    invoices.set(invoiceKey, {
+      ...transaction,
+      id: invoiceKey,
+      title: `Fatura ${card?.name ?? "cartao"}`,
+      amount: transaction.amount,
+      details: [transaction],
+    });
+  }
+
+  return [...regularItems, ...invoices.values()].sort((a, b) => {
+    const aDate = a.dueDate ?? a.date;
+    const bDate = b.dueDate ?? b.date;
+
+    return aDate.getTime() - bDate.getTime();
+  });
+}
