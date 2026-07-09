@@ -54,10 +54,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         ))}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+      <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <div>
           <BalancePanel rows={dashboard.summary.balanceBreakdown} total={dashboard.summary.balance} />
         </div>
+        <AccountBalancePanel accounts={dashboard.accounts} total={dashboard.summary.cashTotal} />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
         <OperationsPanel
           dueSoon={dashboard.summary.dueSoon}
           overdue={dashboard.summary.overdue}
@@ -65,17 +69,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           futureIncomes={dashboard.summary.futureIncomes}
           futureExpenses={dashboard.summary.futureExpenses}
         />
+        <DashboardChart
+          title="Fluxo de Caixa"
+          subtitle="Entradas e saidas consolidadas no mes"
+          data={dashboard.charts.cashFlow}
+          variant="line"
+        />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <DashboardChart
-            title="Fluxo de Caixa"
-            subtitle="Entradas e saidas consolidadas no mes"
-            data={dashboard.charts.cashFlow}
-            variant="line"
-          />
-        </div>
+      <section>
         <DashboardChart
           title="Receitas x Despesas"
           subtitle="Comparativo por semana"
@@ -177,6 +179,44 @@ function OperationsPanel({
         <Metric icon={<Wallet className="size-4" />} label="Saldo previsto" value={currency(projectedBalance)} />
         <Metric icon={<ArrowUpRight className="size-4" />} label="Receitas futuras" value={currency(futureIncomes)} />
         <Metric icon={<ArrowDownRight className="size-4" />} label="Despesas futuras" value={currency(futureExpenses)} />
+      </div>
+    </section>
+  );
+}
+
+function AccountBalancePanel({
+  accounts,
+  total,
+}: {
+  accounts: Array<{ id: string; name: string; institution: string | null; color: string; balance: number }>;
+  total: number;
+}) {
+  return (
+    <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="font-semibold tracking-normal">Dinheiro por conta</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Quanto voce tem separado em cada banco ou carteira.</p>
+        </div>
+        <p className="text-lg font-semibold">{currency(total)}</p>
+      </div>
+      <div className="mt-5 space-y-3">
+        {accounts.length ? (
+          accounts.map((account) => (
+            <div key={account.id} className="flex items-center justify-between gap-4 rounded-lg bg-secondary/55 px-3 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: account.color }} />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{account.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{account.institution ?? "Conta financeira"}</p>
+                </div>
+              </div>
+              <p className="shrink-0 text-sm font-semibold">{currency(account.balance)}</p>
+            </div>
+          ))
+        ) : (
+          <EmptyText>Nenhuma conta cadastrada.</EmptyText>
+        )}
       </div>
     </section>
   );

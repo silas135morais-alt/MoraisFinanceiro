@@ -35,6 +35,8 @@ export async function getDashboard(userId: string, date = new Date()) {
     currentInvoiceTransactions,
     investments,
     assets,
+    accounts,
+    accountTransactions,
     upcoming,
     latest,
     overdue,
@@ -73,6 +75,16 @@ export async function getDashboard(userId: string, date = new Date()) {
       }),
       prisma.investment.findMany({ where: { userId, isArchived: false }, include: { contributions: true } }),
       prisma.asset.findMany({ where: { userId, isArchived: false } }),
+      prisma.financialAccount.findMany({ where: { userId, isArchived: false }, orderBy: [{ isDefault: "desc" }, { name: "asc" }] }),
+      prisma.transaction.findMany({
+        where: {
+          userId,
+          accountId: { not: null },
+          status: "PAID",
+          type: { in: ["INCOME", "EXPENSE", "INVESTMENT_CONTRIBUTION"] },
+        },
+        select: { accountId: true, amount: true, type: true },
+      }),
       prisma.transaction.findMany({
         where: {
           userId,
@@ -137,6 +149,23 @@ export async function getDashboard(userId: string, date = new Date()) {
     return sum + Math.max(investment.currentValue.toNumber(), contributionTotal);
   }, 0);
   const assetsTotal = assets.reduce((sum, asset) => sum + asset.value.toNumber(), 0);
+  const accountBalances = accounts.map((account) => {
+    const transactions = accountTransactions.filter((transaction) => transaction.accountId === account.id);
+    const movements = transactions.reduce((sum, transaction) => {
+      const amount = transaction.amount.toNumber();
+
+      return transaction.type === "INCOME" ? sum + amount : sum - amount;
+    }, 0);
+
+    return {
+      id: account.id,
+      name: account.name,
+      institution: account.institution,
+      color: account.color,
+      balance: account.initialBalance.toNumber() + movements,
+    };
+  });
+  const cashTotal = accountBalances.reduce((sum, account) => sum + account.balance, 0);
   const futureIncomeTotal = futureIncome.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const futureExpenseTotal = futureExpense.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const realizedMonthTotal = incomeTotal - paidOutflowTotal;
@@ -153,6 +182,7 @@ export async function getDashboard(userId: string, date = new Date()) {
       currentInvoice: currentInvoiceTotal,
       investments: investmentsTotal,
       assets: assetsTotal,
+      cashTotal,
       netWorth: balanceTotal + investmentsTotal + assetsTotal - cardsTotal,
       dueSoon: summarizedUpcoming.length,
       overdue: overdue.length,
@@ -173,6 +203,7 @@ export async function getDashboard(userId: string, date = new Date()) {
         { label: "Aportes em investimentos", amount: paidInvestmentsTotal, kind: "out" },
       ],
     },
+    accounts: accountBalances,
     upcoming: summarizedUpcoming,
     latest,
     charts: {
