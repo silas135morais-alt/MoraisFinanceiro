@@ -133,8 +133,13 @@ export const incomeService = {
     const { recurrenceFrequency, ...data } = parsed;
     void recurrenceFrequency;
     const currentIncome = await prisma.income.findUniqueOrThrow({ where: { id, userId } });
+    const currentTransaction = await prisma.transaction.findUnique({
+      where: { userId_sourceType_sourceId: { userId, sourceType: "Income", sourceId: id } },
+      select: { paidAt: true },
+    });
     const status = resolveTransactionStatus(data.status ?? currentIncome.status, data.date ?? currentIncome.date);
     const income = await prisma.income.update({ where: { id, userId }, data: { ...data, status } });
+    const paidAt = status === "PAID" ? currentTransaction?.paidAt ?? new Date() : null;
     await syncTransaction({
       userId,
       accountId: income.accountId,
@@ -145,7 +150,7 @@ export const incomeService = {
       amount: income.amount,
       date: income.date,
       description: income.description,
-      paidAt: income.status === "PAID" ? income.date : null,
+      paidAt,
       sourceId: income.id,
       sourceType: "Income",
     });

@@ -23,6 +23,7 @@ export async function getDashboard(userId: string, date = new Date()) {
   const monthlyTransactionWhere = {
     userId,
     OR: [
+      { paidAt: { gte: startsAt, lte: endsAt } },
       { dueDate: { gte: startsAt, lte: endsAt } },
       { dueDate: null, date: { gte: startsAt, lte: endsAt } },
     ],

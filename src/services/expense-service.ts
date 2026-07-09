@@ -130,6 +130,7 @@ export const expenseService = {
       });
 
       if (installments > 1 && index === 0) parentId = expense.id;
+      const paidAt = expense.status === "PAID" ? expense.date : null;
       const transaction = await syncTransaction({
         userId,
         accountId: expense.accountId,
@@ -141,7 +142,7 @@ export const expenseService = {
         date: expense.date,
         dueDate: expense.dueDate,
         description: expense.description,
-        paidAt: expense.status === "PAID" ? expense.date : null,
+        paidAt,
         sourceId: expense.id,
         sourceType: "Expense",
       });
@@ -156,9 +157,14 @@ export const expenseService = {
     const { recurrenceFrequency, ...data } = parsed;
     void recurrenceFrequency;
     const currentExpense = await prisma.expense.findUniqueOrThrow({ where: { id, userId } });
+    const currentTransaction = await prisma.transaction.findUnique({
+      where: { userId_sourceType_sourceId: { userId, sourceType: "Expense", sourceId: id } },
+      select: { paidAt: true },
+    });
     const nextDueDate = data.dueDate ?? currentExpense.dueDate ?? data.date ?? currentExpense.date;
     const status = resolveTransactionStatus(data.status ?? currentExpense.status, nextDueDate);
     const expense = await prisma.expense.update({ where: { id, userId }, data: { ...data, status } });
+    const paidAt = status === "PAID" ? currentTransaction?.paidAt ?? new Date() : null;
     await syncTransaction({
       userId,
       accountId: expense.accountId,
@@ -170,7 +176,7 @@ export const expenseService = {
       date: expense.date,
       dueDate: expense.dueDate,
       description: expense.description,
-      paidAt: expense.status === "PAID" ? expense.date : null,
+      paidAt,
       sourceId: expense.id,
       sourceType: "Expense",
     });
