@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CalendarClock, CreditCard, Landmark, LineChart, Wallet } from "lucide-react";
+import Link from "next/link";
 
 import { auth } from "@/auth";
 import { DashboardChart } from "@/components/shared/dashboard-chart";
@@ -198,7 +199,12 @@ function AccountBalancePanel({
           <h3 className="font-semibold tracking-normal">Dinheiro por conta</h3>
           <p className="mt-1 text-sm text-muted-foreground">Quanto voce tem separado em cada banco ou carteira.</p>
         </div>
-        <p className="text-lg font-semibold">{currency(total)}</p>
+        <div className="text-right">
+          <p className="text-lg font-semibold">{currency(total)}</p>
+          <Link className="text-xs font-medium text-primary" href="/app/contas">
+            Gerenciar
+          </Link>
+        </div>
       </div>
       <div className="mt-5 space-y-3">
         {accounts.length ? (

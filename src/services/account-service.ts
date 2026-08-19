@@ -10,6 +10,39 @@ export const accountService = {
     });
   },
 
+  async listWithBalances(userId: string) {
+    const [accounts, transactions] = await Promise.all([
+      prisma.financialAccount.findMany({
+        where: { userId, isArchived: false },
+        orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+      }),
+      prisma.transaction.findMany({
+        where: {
+          userId,
+          accountId: { not: null },
+          status: "PAID",
+          type: { in: ["INCOME", "EXPENSE", "INVESTMENT_CONTRIBUTION"] },
+        },
+        select: { accountId: true, amount: true, type: true },
+      }),
+    ]);
+
+    return accounts.map((account) => {
+      const movements = transactions
+        .filter((transaction) => transaction.accountId === account.id)
+        .reduce((sum, transaction) => {
+          const amount = transaction.amount.toNumber();
+
+          return transaction.type === "INCOME" ? sum + amount : sum - amount;
+        }, 0);
+
+      return {
+        ...account,
+        balance: account.initialBalance.toNumber() + movements,
+      };
+    });
+  },
+
   create(userId: string, payload: unknown) {
     const data = financialAccountSchema.parse(payload);
     return prisma.financialAccount.create({ data: { ...data, userId } });
