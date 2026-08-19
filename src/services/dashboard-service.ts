@@ -3,15 +3,45 @@ import { prisma } from "@/lib/prisma";
 import { accountService } from "@/services/account-service";
 import { summarizeCreditCardInvoices } from "@/services/payables-service";
 
+type ChartTransaction = {
+  amount: { toNumber(): number };
+  type: string;
+  date: Date;
+  paidAt: Date | null;
+};
+
+function buildWeeklyCashFlow(transactions: ChartTransaction[], startsAt: Date, endsAt: Date) {
+  return Array.from({ length: 5 }, (_, index) => {
+    const weekStart = new Date(startsAt);
+    weekStart.setUTCDate(1 + index * 7);
+    weekStart.setUTCHours(0, 0, 0, 0);
+
+    const weekEnd = new Date(startsAt);
+    weekEnd.setUTCDate(7 + index * 7);
+    weekEnd.setUTCHours(23, 59, 59, 999);
+
+    const boundedEnd = weekEnd < endsAt ? weekEnd : endsAt;
+    return transactions.reduce((sum, transaction) => {
+      const transactionDate = transaction.paidAt ?? transaction.date;
+      if (transactionDate < weekStart || transactionDate > boundedEnd) return sum;
+      return sum + (transaction.type === "INCOME" ? transaction.amount.toNumber() : -transaction.amount.toNumber());
+    }, 0);
+  });
+}
+
 export async function getDashboard(userId: string, date = new Date()) {
   const { startsAt, endsAt } = getMonthRange(date);
 
   const now = new Date();
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
   const dueStart = startsAt > today ? startsAt : today;
-  const next30 = new Date();
-  next30.setDate(next30.getDate() + 30);
+  const projectionStart = endsAt < today ? null : startsAt > today ? startsAt : now;
+  const projectionEnd = projectionStart ? new Date(projectionStart) : null;
+  projectionEnd?.setUTCDate(projectionEnd.getUTCDate() + 30);
+  const futureWindow = projectionStart && projectionEnd
+    ? { OR: [{ dueDate: { gt: projectionStart, lte: projectionEnd } }, { dueDate: null, date: { gt: projectionStart, lte: projectionEnd } }] }
+    : { id: "__no_future_window_for_historical_month__" };
 
   const monthlyExpenseWhere = {
     userId,
@@ -23,6 +53,7 @@ export async function getDashboard(userId: string, date = new Date()) {
   };
   const monthlyTransactionWhere = {
     userId,
+    status: { not: "CANCELED" as const },
     OR: [
       { paidAt: { gte: startsAt, lte: endsAt } },
       { dueDate: { gte: startsAt, lte: endsAt } },
@@ -106,10 +137,10 @@ export async function getDashboard(userId: string, date = new Date()) {
         take: 20,
       }),
       prisma.transaction.findMany({
-        where: { userId, type: "INCOME", status: "PENDING", date: { gt: now, lte: next30 } },
+        where: { userId, type: "INCOME", status: "PENDING", ...futureWindow },
       }),
       prisma.transaction.findMany({
-        where: { userId, type: { in: ["EXPENSE", "CREDIT_CARD_PURCHASE"] }, status: "PENDING", OR: [{ dueDate: { gt: now, lte: next30 } }, { date: { gt: now, lte: next30 } }] },
+        where: { userId, type: { in: ["EXPENSE", "CREDIT_CARD_PURCHASE"] }, status: "PENDING", ...futureWindow },
       }),
     ]);
 
@@ -147,6 +178,7 @@ export async function getDashboard(userId: string, date = new Date()) {
   const realizedMonthTotal = incomeTotal - paidOutflowTotal;
   const balanceTotal = realizedMonthTotal;
   const summarizedUpcoming = await summarizeCreditCardInvoices(userId, upcoming);
+  const weeklyCashFlow = buildWeeklyCashFlow(paidMonthTransactions, startsAt, endsAt);
 
   return {
     summary: {
@@ -183,9 +215,9 @@ export async function getDashboard(userId: string, date = new Date()) {
     upcoming: summarizedUpcoming,
     latest,
     charts: {
-      cashFlow: [38, 44, 52, 49, 61, 68, 64, 72, 78, 83, 88, 92],
-      incomeExpense: [incomeTotal || 12, expenseTotal || 8, cardsTotal || 5, investmentsTotal ? 20 : 10],
-      wealthEvolution: [42, 47, 51, 58, 63, 70, 76, 83, 89, 94],
+      cashFlow: weeklyCashFlow,
+      incomeExpense: [incomeTotal, paidExpensesTotal, paidCardsTotal, paidInvestmentsTotal],
+      wealthEvolution: [cashTotal, investmentsTotal, assetsTotal],
     },
   };
 }
