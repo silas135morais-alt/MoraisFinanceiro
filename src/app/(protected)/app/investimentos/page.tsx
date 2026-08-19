@@ -25,7 +25,7 @@ export default async function InvestimentosPage() {
     .filter((item) => item.date >= startsAt && item.date <= endsAt)
     .reduce((sum, item) => sum + Number(item.amount), 0);
   const portfolioResult = total - contributionTotal;
-  const chart = investments.length ? investments.map((item) => Math.max(8, Math.min((Number(item.currentValue) / Math.max(total, 1)) * 100, 100))) : [12, 18, 24, 32, 46, 58, 72, 86];
+  const chart = investments.map((item) => Number(item.currentValue));
 
   return (
     <div className="space-y-6">
@@ -40,7 +40,7 @@ export default async function InvestimentosPage() {
         <SummaryCard title="Aportes do mes" value={currency(monthContributionTotal)} helper="Sai do saldo mensal" icon={Banknote} tone="blue" />
         <SummaryCard title="Resultado da carteira" value={currency(portfolioResult)} helper={`${contributions.length} aporte(s) registrados`} icon={Plus} tone="violet" />
       </section>
-      <DashboardChart title="Historico da carteira" subtitle="Composicao atual por ativo" data={chart} variant="line" />
+      <DashboardChart title="Composição da carteira" subtitle="Distribuição atual por ativo" data={chart} variant="line" />
       <DataTable
         columns={["Ativo", "Tipo", "Valor", "Atualizado", "Acoes"]}
         rows={investments.map((item) => [
