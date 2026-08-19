@@ -1,17 +1,50 @@
 import type { RecurrenceFrequency } from "@prisma/client";
 
+
+
+import { addMonths } from "@/lib/date-range";
+
+
+
 export function addFrequency(date: Date, frequency: RecurrenceFrequency) {
+  
+  if (frequency === "MONTHLY") return addMonths(date, 1);
+  
+  if (frequency === "YEARLY") return addMonths(date, 12);
+  
+
+  
   const next = new Date(date);
+  
+  if (frequency === "WEEKLY") next.setUTCDate(next.getUTCDate() + 7);
+  
+  if (frequency === "BIWEEKLY") next.setUTCDate(next.getUTCDate() + 15);
+  
+  if (frequency === "DAILY") next.setUTCDate(next.getUTCDate() + 1);
+  
 
-  if (frequency === "WEEKLY") next.setDate(next.getDate() + 7);
-  if (frequency === "BIWEEKLY") next.setDate(next.getDate() + 15);
-  if (frequency === "MONTHLY") next.setMonth(next.getMonth() + 1);
-  if (frequency === "YEARLY") next.setFullYear(next.getFullYear() + 1);
-  if (frequency === "DAILY") next.setDate(next.getDate() + 1);
-
+  
   return next;
+  
 }
+
+
 
 export function formatMonthLabel(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(date);
+  
+  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
+  
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
