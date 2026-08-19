@@ -191,7 +191,7 @@ export async function getDashboard(userId: string, date = new Date()) {
       investments: investmentsTotal,
       assets: assetsTotal,
       cashTotal,
-      netWorth: balanceTotal + investmentsTotal + assetsTotal - cardsTotal,
+      netWorth: cashTotal + investmentsTotal + assetsTotal - cardsTotal,
       dueSoon: summarizedUpcoming.length,
       overdue: overdue.length,
       projectedBalance: balanceTotal + futureIncomeTotal - futureExpenseTotal,
