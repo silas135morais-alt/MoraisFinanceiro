@@ -56,6 +56,19 @@ enum NotificationType {
   DANGER
 }
 
+enum PersonalDebtPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum PersonalDebtStatus {
+  OPEN
+  PAID
+  CANCELED
+}
+
 enum AuditAction {
   CREATED
   UPDATED
@@ -120,6 +133,8 @@ model User {
   monthClosings           MonthClosing[]
   subscriptions           Subscription[]
   financings              Financing[]
+  personalDebts           PersonalDebt[]
+  driverProfile           DriverProfile?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -392,6 +407,7 @@ model Budget {
   monthId     String
   limit       Decimal @db.Decimal(14, 2)
   alertPercent Int    @default(80)
+  planningGroup String?
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
@@ -549,6 +565,44 @@ model Financing {
   updatedAt DateTime @updatedAt
 
   @@index([userId, nextDueDate, status])
+}
+
+model DriverProfile {
+  id                 String  @id @default(cuid())
+  userId             String  @unique
+  dailyGrossTarget   Decimal @default(250) @db.Decimal(14, 2)
+  workDays           Int     @default(26)
+  fuelPercent        Decimal @default(25) @db.Decimal(6, 2)
+  maintenancePercent Decimal @default(8) @db.Decimal(6, 2)
+  emergencyPercent   Decimal @default(10) @db.Decimal(6, 2)
+  taxPercent         Decimal @default(5) @db.Decimal(6, 2)
+  debtPercent        Decimal @default(15) @db.Decimal(6, 2)
+  minimumReserve     Decimal @default(500) @db.Decimal(14, 2)
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PersonalDebt {
+  id                 String               @id @default(cuid())
+  userId             String
+  creditor           String
+  title              String
+  originalAmount     Decimal              @db.Decimal(14, 2)
+  outstandingBalance Decimal              @db.Decimal(14, 2)
+  interestRate       Decimal              @default(0) @db.Decimal(8, 4)
+  dueDate            DateTime?
+  priority           PersonalDebtPriority @default(URGENT)
+  status             PersonalDebtStatus   @default(OPEN)
+  notes              String?              @db.Text
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status, priority])
+  @@index([userId, dueDate])
 }
 
 model Notification {
