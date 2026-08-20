@@ -122,6 +122,14 @@ export const driverProfileSchema = z.object({
   minimumReserve: z.coerce.number().nonnegative().default(500),
 });
 
+export const driverDailyEarningSchema = z.object({
+  id: z.string().optional(),
+  date: dateString,
+  accountId: z.string().min(1),
+  grossAmount: z.coerce.number().finite().positive(),
+  notes: z.string().max(500).optional().nullable(),
+});
+
 export const financingSchema = z.object({
   name: z.string().min(2),
   categoryId: z.string().min(1),
