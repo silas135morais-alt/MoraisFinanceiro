@@ -79,7 +79,7 @@ export function IncomeRowActions({ accounts, categories, income }: IncomeRowActi
       <div className="flex flex-wrap gap-2">
         <Button size="sm" type="button" variant="outline" onClick={() => setIsEditing((current) => !current)}>
           {isEditing ? <X className="size-4" /> : <Pencil className="size-4" />}
-          {isEditing ? "Fechar" : "Editar"}
+          {isEditing ? "Fechar" : "Corrigir"}
         </Button>
 
         {income.status !== "PAID" ? (

@@ -72,14 +72,14 @@ export function IncomeCreateAction({ accounts, categories, compact = false }: In
       {compact ? (
         <Button disabled={isDisabled} onClick={() => setIsOpen((current) => !current)} type="button">
           {isOpen ? <X className="size-4" /> : <Plus className="size-4" />}
-          {isOpen ? "Fechar" : "Adicionar receita futura"}
+          {isOpen ? "Fechar" : "Nova receita"}
         </Button>
       ) : (
         <PageHeader
           actions={
             <Button disabled={isDisabled} onClick={() => setIsOpen((current) => !current)} type="button">
               {isOpen ? <X className="size-4" /> : <Plus className="size-4" />}
-              {isOpen ? "Fechar" : "Nova Receita"}
+              {isOpen ? "Fechar" : "Nova receita"}
             </Button>
           }
           description="Organize salarios, rendas extras, reembolsos e rendimentos."
