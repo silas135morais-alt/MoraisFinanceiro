@@ -135,6 +135,7 @@ model User {
   financings              Financing[]
   personalDebts           PersonalDebt[]
   driverProfile           DriverProfile?
+  driverDailyEarnings     DriverDailyEarning[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -294,6 +295,8 @@ model Income {
   recurrenceOccurrenceDate DateTime?
   status      TransactionStatus @default(PENDING)
   transactionId String?         @unique
+
+  driverDailyEarning DriverDailyEarning?
 
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   category    Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
@@ -565,6 +568,25 @@ model Financing {
   updatedAt DateTime @updatedAt
 
   @@index([userId, nextDueDate, status])
+}
+
+model DriverDailyEarning {
+  id           String   @id @default(cuid())
+  userId       String
+  incomeId     String   @unique
+  date         DateTime
+  grossAmount  Decimal  @db.Decimal(14, 2)
+  targetAmount Decimal  @db.Decimal(14, 2)
+  notes        String?  @db.Text
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  income Income @relation(fields: [incomeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
 }
 
 model DriverProfile {
