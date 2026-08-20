@@ -15,6 +15,15 @@ export const budgetService = {
     return prisma.budget.create({ data: { ...data, userId } });
   },
 
+  upsert(userId: string, payload: unknown) {
+    const data = budgetSchema.parse(payload);
+    return prisma.budget.upsert({
+      where: { userId_categoryId_monthId: { userId, categoryId: data.categoryId, monthId: data.monthId } },
+      update: { limit: data.limit, alertPercent: data.alertPercent },
+      create: { ...data, userId },
+    });
+  },
+
   update(userId: string, id: string, payload: unknown) {
     const data = budgetSchema.partial().parse(payload);
     return prisma.budget.update({ where: { id, userId }, data });
