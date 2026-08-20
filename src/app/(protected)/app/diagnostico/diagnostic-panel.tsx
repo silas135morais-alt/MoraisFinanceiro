@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, CheckCircle2, ChevronDown, Fuel, Gauge, ShieldCheck } from "lucide-react";
 
 import { currency, shortDate } from "@/lib/format";
+import { DriverDailyEarningPanel } from "./driver-daily-earning-panel";
 
 const STORAGE_KEY = "morais-financeiro-99-settings-v1";
 const defaultSettings = {
@@ -93,6 +94,15 @@ export function DiagnosticPanel() {
     setSavedMessage("");
   }
 
+  async function refreshAfterEarning() {
+    const response = await fetch("/api/diagnostico", { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok) return;
+    const data = payload.data ?? payload;
+    setDiagnostic(data);
+    if (data.driverProfile) setSettings(data.driverProfile);
+  }
+
   async function saveSettings() {
     setSaving(true);
     setSavedMessage("");
@@ -143,6 +153,8 @@ export function DiagnosticPanel() {
         <MetricCard label="Despesas previstas" value={currency(diagnostic.transactionOutflow30d)} helper="Contas e cartões" icon={<CalendarDays className="size-4" />} />
         <MetricCard label="Disponível seguro" value={currency(diagnostic.safeCash30d)} helper={`Reserva de ${currency(diagnostic.minimumReserve)}`} icon={<ShieldCheck className="size-4" />} />
       </section>
+
+      <DriverDailyEarningPanel onSaved={refreshAfterEarning} />
 
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
