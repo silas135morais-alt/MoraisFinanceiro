@@ -2,6 +2,7 @@
 
 import type { Session } from "next-auth";
 import {
+  Activity,
   BarChart3,
   CalendarDays,
   CreditCard,
@@ -12,6 +13,7 @@ import {
   LineChart,
   ListChecks,
   PiggyBank,
+  PieChart,
   Receipt,
   Settings,
   ShieldCheck,
@@ -27,6 +29,8 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { label: "Resumo", href: "/app", icon: LayoutDashboard },
+  { label: "Diagnóstico", href: "/app/diagnostico", icon: Activity },
+  { label: "Orçamentos", href: "/app/orcamentos", icon: PieChart },
   { label: "Receitas", href: "/app/receitas", icon: TrendingDown },
   { label: "Despesas", href: "/app/despesas", icon: Receipt },
   { label: "Cartões", href: "/app/cartoes", icon: CreditCard },
