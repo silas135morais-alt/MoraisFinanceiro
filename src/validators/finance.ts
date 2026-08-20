@@ -99,6 +99,29 @@ export const subscriptionSchema = z.object({
   status: z.enum(["PAID", "PENDING", "OVERDUE", "CANCELED"]).default("PENDING"),
 });
 
+export const personalDebtSchema = z.object({
+  creditor: z.string().min(2),
+  title: z.string().min(2),
+  originalAmount: money,
+  outstandingBalance: money,
+  interestRate: z.coerce.number().min(0).default(0),
+  dueDate: dateString.optional().nullable(),
+  priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).default("URGENT"),
+  status: z.enum(["OPEN", "PAID", "CANCELED"]).default("OPEN"),
+  notes: z.string().optional().nullable(),
+});
+
+export const driverProfileSchema = z.object({
+  dailyGrossTarget: z.coerce.number().nonnegative().default(250),
+  workDays: z.coerce.number().int().min(1).max(31).default(26),
+  fuelPercent: z.coerce.number().min(0).max(100).default(25),
+  maintenancePercent: z.coerce.number().min(0).max(100).default(8),
+  emergencyPercent: z.coerce.number().min(0).max(100).default(10),
+  taxPercent: z.coerce.number().min(0).max(100).default(5),
+  debtPercent: z.coerce.number().min(0).max(100).default(15),
+  minimumReserve: z.coerce.number().nonnegative().default(500),
+});
+
 export const financingSchema = z.object({
   name: z.string().min(2),
   categoryId: z.string().min(1),
@@ -132,6 +155,7 @@ export const budgetSchema = z.object({
   monthId: z.string().min(1),
   limit: money,
   alertPercent: z.coerce.number().int().min(1).max(100).default(80),
+  planningGroup: z.string().trim().max(80).optional().nullable(),
 });
 
 export const investmentSchema = z.object({
@@ -161,3 +185,5 @@ export const assetSchema = z.object({
 export type IncomeInput = z.infer<typeof incomeSchema>;
 export type ExpenseInput = z.infer<typeof expenseSchema>;
 export type CreditCardInput = z.infer<typeof creditCardSchema>;
+export type PersonalDebtInput = z.infer<typeof personalDebtSchema>;
+export type DriverProfileInput = z.infer<typeof driverProfileSchema>;
