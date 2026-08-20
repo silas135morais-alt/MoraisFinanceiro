@@ -9,6 +9,7 @@ import { SummaryCard } from "@/components/shared/summary-card";
 import { currency, shortDate } from "@/lib/format";
 import { firstParam, monthParamToDate } from "@/lib/month-param";
 import { getDashboard } from "@/services/dashboard-service";
+import { getFinancialDiagnostic } from "@/services/diagnostic-service";
 
 type DashboardPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -19,7 +20,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const params = (await searchParams) ?? {};
   const selectedDate = monthParamToDate(firstParam(params.month));
   const firstName = session?.user?.name?.split(" ")[0] ?? "Usuario";
-  const dashboard = await getDashboard(session?.user?.id ?? "", selectedDate);
+  const [dashboard, diagnostic] = await Promise.all([
+    getDashboard(session?.user?.id ?? "", selectedDate),
+    getFinancialDiagnostic(session?.user?.id ?? "", selectedDate),
+  ]);
   const cards = [
     { title: "Saldo do mes", value: currency(dashboard.summary.balance), helper: "Receitas - contas, faturas e aportes", icon: Wallet, tone: "emerald" },
     { title: "Entradas recebidas", value: currency(dashboard.summary.incomes), helper: "Receitas e resgates pagos", icon: ArrowUpRight, tone: "blue" },
@@ -78,6 +82,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         />
       </section>
 
+      <DiagnosticSummaryPanel diagnostic={diagnostic} />
+
       <section>
         <DashboardChart
           title="Receitas x Despesas"
@@ -122,6 +128,32 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </section>
     </div>
   );
+}
+
+function DiagnosticSummaryPanel({ diagnostic }: { diagnostic: Awaited<ReturnType<typeof getFinancialDiagnostic>> }) {
+  const priority = diagnostic.debts[0];
+  return (
+    <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Diagnóstico</p>
+          <h3 className="mt-1 text-xl font-semibold">Seu caixa nos próximos 30 dias</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Cálculo com saldo atual, receitas pendentes e compromissos com vencimento no horizonte.</p>
+        </div>
+        <Link href="/app/diagnostico" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-secondary">Abrir diagnóstico</Link>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <MiniDashboardStat label="Caixa projetado" value={currency(diagnostic.projectedCash30d)} />
+        <MiniDashboardStat label="Entradas previstas" value={currency(diagnostic.futureIncome30d)} />
+        <MiniDashboardStat label="Compromissos previstos" value={currency(diagnostic.futureOutflow30d)} />
+      </div>
+      <p className="mt-4 rounded-lg bg-secondary/55 px-4 py-3 text-sm text-muted-foreground">{priority ? <>Prioridade atual: <strong className="text-foreground">{priority.name}</strong>, saldo de {currency(priority.outstandingBalance)} e próximo vencimento em {shortDate(new Date(priority.nextDueDate))}.</> : <>Nenhuma dívida ativa cadastrada. O diagnóstico está pronto para acompanhar seus próximos objetivos.</>}</p>
+    </section>
+  );
+}
+
+function MiniDashboardStat({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-lg border bg-background p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 font-semibold">{value}</p></div>;
 }
 
 function BalancePanel({
