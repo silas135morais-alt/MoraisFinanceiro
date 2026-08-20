@@ -87,14 +87,14 @@ export function ExpenseCreateAction({ accounts, categories, compact = false }: E
       {compact ? (
         <Button disabled={isDisabled} onClick={() => setIsOpen((current) => !current)} type="button">
           {isOpen ? <X className="size-4" /> : <Plus className="size-4" />}
-          {isOpen ? "Fechar" : "Adicionar conta futura"}
+          {isOpen ? "Fechar" : "Nova despesa"}
         </Button>
       ) : (
         <PageHeader
           actions={
             <Button disabled={isDisabled} onClick={() => setIsOpen((current) => !current)} type="button">
               {isOpen ? <X className="size-4" /> : <Plus className="size-4" />}
-              {isOpen ? "Fechar" : "Nova Despesa"}
+              {isOpen ? "Fechar" : "Nova despesa"}
             </Button>
           }
           description="Cadastre contas futuras, avulsas, fixas e parceladas."
@@ -162,7 +162,7 @@ export function ExpenseRowActions({ accounts, categories, expense }: SharedProps
       <div className="flex flex-wrap gap-2">
         <Button size="sm" type="button" variant="outline" onClick={() => setIsEditing((current) => !current)}>
           {isEditing ? <X className="size-4" /> : <Pencil className="size-4" />}
-          {isEditing ? "Fechar" : "Editar"}
+          {isEditing ? "Fechar" : "Corrigir"}
         </Button>
         {expense.status !== "PAID" ? (
           <Button disabled={isSubmitting} size="sm" type="button" onClick={() => updateExpense({ date: new Date().toISOString().slice(0, 10), status: "PAID" })}>
