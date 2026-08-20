@@ -132,6 +132,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
 function DiagnosticSummaryPanel({ diagnostic }: { diagnostic: Awaited<ReturnType<typeof getFinancialDiagnostic>> }) {
   const priority = diagnostic.debts[0];
+  const priorityDueDate = priority?.source === "PERSONAL_DEBT" ? priority.dueDate : priority?.nextDueDate;
   return (
     <section className="rounded-lg border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -142,12 +143,19 @@ function DiagnosticSummaryPanel({ diagnostic }: { diagnostic: Awaited<ReturnType
         </div>
         <Link href="/app/diagnostico" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-secondary">Abrir diagnóstico</Link>
       </div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MiniDashboardStat label="Caixa projetado" value={currency(diagnostic.projectedCash30d)} />
         <MiniDashboardStat label="Entradas previstas" value={currency(diagnostic.futureIncome30d)} />
         <MiniDashboardStat label="Compromissos previstos" value={currency(diagnostic.futureOutflow30d)} />
+        <MiniDashboardStat label="Disponível seguro" value={currency(diagnostic.safeCash30d)} />
       </div>
-      <p className="mt-4 rounded-lg bg-secondary/55 px-4 py-3 text-sm text-muted-foreground">{priority ? <>Prioridade atual: <strong className="text-foreground">{priority.name}</strong>, saldo de {currency(priority.outstandingBalance)} e próximo vencimento em {shortDate(new Date(priority.nextDueDate))}.</> : <>Nenhuma dívida ativa cadastrada. O diagnóstico está pronto para acompanhar seus próximos objetivos.</>}</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <MiniDashboardStat label="Meta bruta mensal 99" value={currency(diagnostic.driverProfile.dailyGrossTarget * diagnostic.driverProfile.workDays)} />
+        <MiniDashboardStat label="Renda líquida planejada" value={currency(diagnostic.driverProfile.dailyGrossTarget * diagnostic.driverProfile.workDays * (1 - (diagnostic.driverProfile.fuelPercent + diagnostic.driverProfile.maintenancePercent + diagnostic.driverProfile.taxPercent + diagnostic.driverProfile.emergencyPercent) / 100))} />
+        <MiniDashboardStat label="Dívida pessoal em aberto" value={currency(diagnostic.personalDebtBalance)} />
+      </div>
+      <p className="mt-4 rounded-lg bg-secondary/55 px-4 py-3 text-sm text-muted-foreground">{priority ? <>Prioridade atual: <strong className="text-foreground">{priority.source === "PERSONAL_DEBT" ? `${priority.creditor} — ${priority.title}` : priority.name}</strong>, saldo de {currency(priority.outstandingBalance)}{priorityDueDate ? ` e vencimento em ${shortDate(new Date(priorityDueDate))}` : ""}.</> : <>Nenhuma dívida pessoal ou financiamento ativo cadastrado. O diagnóstico está pronto para acompanhar seus próximos objetivos.</>}
+</p>
     </section>
   );
 }
