@@ -10,8 +10,9 @@ import { DebtBoard } from "./debt-board";
 
 export default async function DividasPage() {
   const items = await personalDebtService.list(await requireUserId());
-  const rows = items.map(serializePersonalDebt);
-  const total = rows.reduce((sum, item) => sum + item.outstandingBalance, 0);
+  type DebtRow = ReturnType<typeof serializePersonalDebt>;
+  const rows: DebtRow[] = items.map(serializePersonalDebt);
+  const total = rows.reduce((sum: number, item: DebtRow) => sum + item.outstandingBalance, 0);
   const urgent = rows.filter((item) => item.priority === "URGENT").length;
 
   return (
