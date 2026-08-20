@@ -13,12 +13,10 @@ import {
   LineChart,
   ListChecks,
   PiggyBank,
-  PieChart,
   Receipt,
   Settings,
   ShieldCheck,
   Wallet,
-  WalletCards,
   TrendingDown,
 } from "lucide-react";
 import Link from "next/link";
@@ -31,8 +29,6 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { label: "Resumo", href: "/app", icon: LayoutDashboard },
   { label: "Diagnóstico", href: "/app/diagnostico", icon: Activity },
-  { label: "Dívidas", href: "/app/dividas", icon: WalletCards },
-  { label: "Orçamentos", href: "/app/orcamentos", icon: PieChart },
   { label: "Receitas", href: "/app/receitas", icon: TrendingDown },
   { label: "Despesas", href: "/app/despesas", icon: Receipt },
   { label: "Cartões", href: "/app/cartoes", icon: CreditCard },
@@ -63,7 +59,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
         </div>
         <div>
           <p className="text-base font-semibold leading-none">MoraisFinanceiro</p>
-          <p className="mt-1 text-xs text-muted-foreground">Gestão clara e premium</p>
+          <p className="mt-1 text-xs text-muted-foreground">Finanças pessoais</p>
         </div>
       </div>
 
@@ -100,10 +96,6 @@ export function AppSidebar({ user }: AppSidebarProps) {
             </div>
           </div>
           <ThemeToggle />
-        </div>
-        <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-xs text-muted-foreground">
-          <ShieldCheck className="size-4 text-primary" />
-          Ambiente protegido
         </div>
       </div>
     </aside>
