@@ -4,7 +4,12 @@ import { notificationService } from "@/services/notification-service";
 
 export async function GET() {
   try {
-    return ok(await notificationService.list(await requireUserId()));
+    const userId = await requireUserId();
+    await Promise.all([
+      notificationService.generateDueNotifications(userId),
+      notificationService.generateOperationalNotifications(userId),
+    ]);
+    return ok(await notificationService.list(userId));
   } catch (error) {
     return handleApiError(error);
   }
