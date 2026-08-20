@@ -9,6 +9,10 @@ const migration = readFileSync(
   new URL("../prisma/migrations/20260630153000_financial_core/migration.sql", import.meta.url),
   "utf8",
 );
+const driverDailyMigration = readFileSync(
+  new URL("../prisma/migrations/20260820190000_driver_daily_earnings/migration.sql", import.meta.url),
+  "utf8",
+);
 
 test("schema contains required financial models", () => {
   [
@@ -32,6 +36,8 @@ test("schema contains required financial models", () => {
     "Financing",
     "Notification",
     "AuditLog",
+    "DriverProfile",
+    "DriverDailyEarning",
   ].forEach((model) => assert.match(schema, new RegExp(`model ${model} \\{`)));
 });
 
@@ -49,6 +55,12 @@ test("migration creates unified transaction table and financial tables", () => {
   assert.match(migration, /CREATE TABLE "Expense"/);
   assert.match(migration, /CREATE TABLE "CreditCardPurchase"/);
   assert.match(migration, /CREATE UNIQUE INDEX "Transaction_userId_sourceType_sourceId_key"/);
+});
+
+test("driver daily earnings migration protects one realized entry per day", () => {
+  assert.match(driverDailyMigration, /CREATE TABLE "DriverDailyEarning"/);
+  assert.match(driverDailyMigration, /CREATE UNIQUE INDEX "DriverDailyEarning_userId_date_key"/);
+  assert.match(driverDailyMigration, /REFERENCES "Income"\("id"\)/);
 });
 
 test("operational cycle migration creates closing, notifications and history", () => {
@@ -85,5 +97,7 @@ test("operational routes exist for core production flows", () => {
     "../src/app/api/export/route.ts",
     "../src/app/api/import/route.ts",
     "../src/app/api/search/route.ts",
+    "../src/app/api/motorista-99/realizado/route.ts",
+    "../src/app/api/motorista-99/realizado/[id]/route.ts",
   ].forEach((route) => assert.equal(existsSync(new URL(route, import.meta.url)), true, route));
 });
