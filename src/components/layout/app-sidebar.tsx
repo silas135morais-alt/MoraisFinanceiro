@@ -18,6 +18,7 @@ import {
   Settings,
   ShieldCheck,
   Wallet,
+  WalletCards,
   TrendingDown,
 } from "lucide-react";
 import Link from "next/link";
@@ -30,6 +31,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { label: "Resumo", href: "/app", icon: LayoutDashboard },
   { label: "Diagnóstico", href: "/app/diagnostico", icon: Activity },
+  { label: "Dívidas", href: "/app/dividas", icon: WalletCards },
   { label: "Orçamentos", href: "/app/orcamentos", icon: PieChart },
   { label: "Receitas", href: "/app/receitas", icon: TrendingDown },
   { label: "Despesas", href: "/app/despesas", icon: Receipt },
