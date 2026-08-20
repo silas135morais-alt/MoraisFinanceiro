@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock, Receipt } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Landmark, Receipt, WalletCards } from "lucide-react";
 import Link from "next/link";
 
 import { DataTable } from "@/components/shared/data-table";
@@ -103,7 +103,7 @@ export default async function DespesasPage({ searchParams }: DespesasPageProps) 
 
   return (
     <div className="space-y-6">
-      <ExpenseCreateAction accounts={accountOptions} categories={categoryOptions} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><ExpenseCreateAction accounts={accountOptions} categories={categoryOptions} /><div className="flex flex-wrap gap-2"><Link href="/app/financiamentos" className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary"><Landmark className="size-4" />Gerenciar financiamentos</Link><Link href="/app/dividas" className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary"><WalletCards className="size-4" />Dívidas pessoais</Link></div></div>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard title="Total do mes" value={currency(monthlyTotal)} helper={`${monthlyData.total} despesa(s) vencem neste mes`} icon={Receipt} tone="rose" />
         <SummaryCard title="Pago no mes" value={currency(monthlyPaid)} helper="Somente despesas pagas" icon={CheckCircle2} tone="emerald" />
