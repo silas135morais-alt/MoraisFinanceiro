@@ -52,7 +52,7 @@ export const incomeService = {
     const [items, total] = await Promise.all([
       prisma.income.findMany({
         where: incomeWhere,
-        include: { category: true, account: true, attachments: true },
+        include: { category: true, account: true, attachments: true, driverDailyEarning: { select: { id: true } } },
         orderBy: { date: "desc" },
         skip,
         take,
