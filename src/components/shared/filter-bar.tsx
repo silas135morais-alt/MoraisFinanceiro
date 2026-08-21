@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
@@ -10,6 +11,7 @@ type QuickFilter = {
   label: string;
   params?: Record<string, string>;
   clear?: string[];
+  href?: string;
 };
 
 type FilterBarProps = {
@@ -63,7 +65,7 @@ export function FilterBar({ placeholder = "Pesquisar", quickFilters = [] }: Filt
     <div className="space-y-2">
       {quickFilters.length ? (
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {quickFilters.map((filter) => <button key={filter.label} type="button" onClick={() => applyQuickFilter(filter)} className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${isActive(filter) ? "border-primary/40 bg-primary/10 text-primary" : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>{filter.label}</button>)}
+          {quickFilters.map((filter) => filter.href ? <Link key={filter.label} href={filter.href} className="whitespace-nowrap rounded-full border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">{filter.label}</Link> : <button key={filter.label} type="button" onClick={() => applyQuickFilter(filter)} className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${isActive(filter) ? "border-primary/40 bg-primary/10 text-primary" : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>{filter.label}</button>)}
         </div>
       ) : null}
       <form className="flex flex-col gap-3 rounded-lg border bg-card p-3 shadow-sm sm:flex-row sm:items-center" onSubmit={handleSubmit}>

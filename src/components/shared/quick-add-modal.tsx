@@ -2,13 +2,15 @@
 
 import { CarFront, CreditCard, Plus, Receipt, Wallet, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import type { z } from "zod";
 
 import { ExpenseForm } from "@/components/forms/expense-form";
 import { IncomeForm } from "@/components/forms/income-form";
 import { DriverDailyEarningPanel } from "@/app/(protected)/app/diagnostico/driver-daily-earning-panel";
+import { todayInput } from "@/lib/date-input";
+import { prioritizeRecentOptions, readLastPreference, rememberRecentPreference } from "@/lib/recent-preferences";
 import { expenseSchema, incomeSchema } from "@/validators/finance";
 
 type Option = { id: string; name: string };
@@ -29,10 +31,6 @@ const LAST_INCOME_CATEGORY_KEY = "morais-financeiro-last-income-category-v1";
 const LAST_EXPENSE_CATEGORY_KEY = "morais-financeiro-last-expense-category-v1";
 const LAST_CARD_KEY = "morais-financeiro-last-card-v1";
 
-function readPreference(key: string) {
-  return typeof window === "undefined" ? "" : window.localStorage.getItem(key) ?? "";
-}
-
 function isQuickMode(value: string): value is QuickMode {
   return value === "income" || value === "expense" || value === "card" || value === "driver99";
 }
@@ -41,40 +39,47 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<QuickMode>(() => {
-    const stored = readPreference(LAST_MODE_KEY);
+    const stored = readLastPreference(LAST_MODE_KEY);
     return isQuickMode(stored) ? stored : "expense";
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [continueAdding, setContinueAdding] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
-  const [lastAccountId, setLastAccountId] = useState(() => readPreference(LAST_ACCOUNT_KEY));
-  const [lastIncomeCategoryId, setLastIncomeCategoryId] = useState(() => readPreference(LAST_INCOME_CATEGORY_KEY));
-  const [lastExpenseCategoryId, setLastExpenseCategoryId] = useState(() => readPreference(LAST_EXPENSE_CATEGORY_KEY));
-  const [lastCardId, setLastCardId] = useState(() => readPreference(LAST_CARD_KEY));
-  const today = new Date().toISOString().slice(0, 10);
+  const [error, setError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
+  const [lastAccountId, setLastAccountId] = useState(() => readLastPreference(LAST_ACCOUNT_KEY));
+  const [lastIncomeCategoryId, setLastIncomeCategoryId] = useState(() => readLastPreference(LAST_INCOME_CATEGORY_KEY));
+  const [lastExpenseCategoryId, setLastExpenseCategoryId] = useState(() => readLastPreference(LAST_EXPENSE_CATEGORY_KEY));
+  const [lastCardId, setLastCardId] = useState(() => readLastPreference(LAST_CARD_KEY));
+  const today = todayInput();
 
   function rememberSelection(selection: Selection) {
     if (selection.accountId) {
-      window.localStorage.setItem(LAST_ACCOUNT_KEY, selection.accountId);
+      rememberRecentPreference(LAST_ACCOUNT_KEY, selection.accountId);
       setLastAccountId(selection.accountId);
     }
     if (selection.categoryId) {
       const categoryKey = mode === "income" ? LAST_INCOME_CATEGORY_KEY : LAST_EXPENSE_CATEGORY_KEY;
-      window.localStorage.setItem(categoryKey, selection.categoryId);
+      rememberRecentPreference(categoryKey, selection.categoryId);
       if (mode === "income") setLastIncomeCategoryId(selection.categoryId);
       else setLastExpenseCategoryId(selection.categoryId);
     }
     if (selection.cardId) {
-      window.localStorage.setItem(LAST_CARD_KEY, selection.cardId);
+      rememberRecentPreference(LAST_CARD_KEY, selection.cardId);
       setLastCardId(selection.cardId);
     }
   }
 
   function chooseMode(nextMode: QuickMode) {
     setMode(nextMode);
-    window.localStorage.setItem(LAST_MODE_KEY, nextMode);
+    try {
+      window.localStorage.setItem(LAST_MODE_KEY, nextMode);
+    } catch {
+      // The quick launch flow must remain usable if browser storage is unavailable.
+    }
     setMessage(null);
+    setError(null);
     setFormKey((current) => current + 1);
   }
 
@@ -87,24 +92,37 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
   }
 
   async function submitJson(endpoint: string, values: unknown, selection: Selection = {}) {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     setMessage(null);
-    const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) });
-    setIsSubmitting(false);
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setMessage(body?.error ?? "Não foi possível salvar o lançamento.");
-      return;
+    setError(null);
+    try {
+      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? "Não foi possível salvar o lançamento.");
+        return;
+      }
+      rememberSelection(selection);
+      try {
+        window.localStorage.setItem(LAST_MODE_KEY, mode);
+      } catch {
+        // Saving the financial entry must not depend on browser storage.
+      }
+      if (continueAdding) {
+        setFormKey((current) => current + 1);
+        setMessage("Salvo. Você pode registrar o próximo.");
+      } else {
+        setOpen(false);
+      }
+      router.refresh();
+    } catch {
+      setError("Não foi possível concluir agora. Verifique a conexão e tente novamente.");
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
     }
-    rememberSelection(selection);
-    window.localStorage.setItem(LAST_MODE_KEY, mode);
-    if (continueAdding) {
-      setFormKey((current) => current + 1);
-      setMessage("Salvo. Você pode registrar o próximo.");
-    } else {
-      setOpen(false);
-    }
-    router.refresh();
   }
 
   async function submitCard(event: FormEvent<HTMLFormElement>) {
@@ -126,14 +144,22 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
 
   function handleDriverSaved(accountId?: string) {
     rememberSelection({ accountId });
-    window.localStorage.setItem(LAST_MODE_KEY, "driver99");
+    try {
+      window.localStorage.setItem(LAST_MODE_KEY, "driver99");
+    } catch {
+      // The entry was already saved on the server.
+    }
     if (!continueAdding) setOpen(false);
   }
 
-  const preferredAccountId = accounts.some((account) => account.id === lastAccountId) ? lastAccountId : accounts[0]?.id ?? "";
-  const preferredIncomeCategoryId = incomeCategories.some((category) => category.id === lastIncomeCategoryId) ? lastIncomeCategoryId : incomeCategories[0]?.id ?? "";
-  const preferredExpenseCategoryId = expenseCategories.some((category) => category.id === lastExpenseCategoryId) ? lastExpenseCategoryId : expenseCategories[0]?.id ?? "";
-  const preferredCardId = cards.some((card) => card.id === lastCardId) ? lastCardId : cards[0]?.id ?? "";
+  const orderedAccounts = prioritizeRecentOptions(accounts, LAST_ACCOUNT_KEY);
+  const orderedIncomeCategories = prioritizeRecentOptions(incomeCategories, LAST_INCOME_CATEGORY_KEY);
+  const orderedExpenseCategories = prioritizeRecentOptions(expenseCategories, LAST_EXPENSE_CATEGORY_KEY);
+  const orderedCards = prioritizeRecentOptions(cards, LAST_CARD_KEY);
+  const preferredAccountId = orderedAccounts.some((account) => account.id === lastAccountId) ? lastAccountId : orderedAccounts[0]?.id ?? "";
+  const preferredIncomeCategoryId = orderedIncomeCategories.some((category) => category.id === lastIncomeCategoryId) ? lastIncomeCategoryId : orderedIncomeCategories[0]?.id ?? "";
+  const preferredExpenseCategoryId = orderedExpenseCategories.some((category) => category.id === lastExpenseCategoryId) ? lastExpenseCategoryId : orderedExpenseCategories[0]?.id ?? "";
+  const preferredCardId = orderedCards.some((card) => card.id === lastCardId) ? lastCardId : orderedCards[0]?.id ?? "";
 
   return (
     <>
@@ -161,12 +187,13 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
               Salvar e lançar outro
             </label>
 
-            {message ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200">{message}</p> : null}
+            {message ? <p role="status" className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200">{message}</p> : null}
+            {error ? <p role="alert" className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
             <div className="mt-5">
               {mode === "driver99" ? <DriverDailyEarningPanel compact={false} onSaved={handleDriverSaved} preferredAccountId={preferredAccountId} sectionId="ganho-99-quick" /> : null}
-              {mode === "income" ? <IncomeForm key={`income-${formKey}`} accounts={accounts} categories={incomeCategories} isSubmitting={isSubmitting} defaultValues={{ accountId: preferredAccountId, categoryId: preferredIncomeCategoryId, date: today, status: "PENDING", isRecurring: false, recurrenceFrequency: "MONTHLY" }} onSubmit={submitIncome} /> : null}
-              {mode === "expense" ? <ExpenseForm key={`expense-${formKey}`} accounts={accounts} categories={expenseCategories} isSubmitting={isSubmitting} defaultValues={{ accountId: preferredAccountId, categoryId: preferredExpenseCategoryId, date: today, dueDate: today, status: "PENDING", type: "ONE_TIME", installments: 1, isRecurring: false, recurrenceFrequency: "MONTHLY" }} onSubmit={submitExpense} /> : null}
-              {mode === "card" ? <CardPurchaseForm key={`card-${formKey}`} cards={cards} categories={expenseCategories} today={today} defaultCardId={preferredCardId} defaultCategoryId={preferredExpenseCategoryId} isSubmitting={isSubmitting} onSubmit={submitCard} /> : null}
+              {mode === "income" ? <IncomeForm key={`income-${formKey}`} accounts={orderedAccounts} categories={orderedIncomeCategories} isSubmitting={isSubmitting} defaultValues={{ accountId: preferredAccountId, categoryId: preferredIncomeCategoryId, date: today, status: "PENDING", isRecurring: false, recurrenceFrequency: "MONTHLY" }} onSubmit={submitIncome} /> : null}
+              {mode === "expense" ? <ExpenseForm key={`expense-${formKey}`} accounts={orderedAccounts} categories={orderedExpenseCategories} isSubmitting={isSubmitting} defaultValues={{ accountId: preferredAccountId, categoryId: preferredExpenseCategoryId, date: today, dueDate: today, status: "PENDING", type: "ONE_TIME", installments: 1, isRecurring: false, recurrenceFrequency: "MONTHLY" }} onSubmit={submitExpense} /> : null}
+              {mode === "card" ? <CardPurchaseForm key={`card-${formKey}`} cards={orderedCards} categories={orderedExpenseCategories} today={today} defaultCardId={preferredCardId} defaultCategoryId={preferredExpenseCategoryId} isSubmitting={isSubmitting} onSubmit={submitCard} /> : null}
             </div>
           </div>
         </div>
@@ -183,7 +210,8 @@ function CardPurchaseForm({ cards, categories, today, defaultCardId, defaultCate
   if (!cards.length) return <p className="rounded-lg border bg-secondary/55 p-4 text-sm text-muted-foreground">Cadastre um cartão antes de registrar compras nessa aba.</p>;
   if (!categories.length) return <p className="rounded-lg border bg-secondary/55 p-4 text-sm text-muted-foreground">Cadastre uma categoria de despesa antes de registrar compras no cartão.</p>;
 
-  return <form className="grid gap-3" onSubmit={onSubmit}>
+  return     <form className="grid gap-3" onSubmit={onSubmit} aria-busy={isSubmitting}>
+      {isSubmitting ? <p role="status" className="text-xs text-muted-foreground">Salvando seu lançamento...</p> : null}
     <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium">Compra<input autoFocus required name="title" className="h-10 rounded-md border bg-background px-3 text-sm font-normal" placeholder="Ex.: Mercado" /></label><label className="grid gap-1 text-sm font-medium">Cartão<select required name="cardId" defaultValue={defaultCardId} className="h-10 rounded-md border bg-background px-3 text-sm font-normal">{cards.map((card) => <option key={card.id} value={card.id}>{card.name}</option>)}</select></label></div>
     <div className="grid gap-3 sm:grid-cols-3"><label className="grid gap-1 text-sm font-medium">Categoria<select required name="categoryId" defaultValue={defaultCategoryId} className="h-10 rounded-md border bg-background px-3 text-sm font-normal">{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label className="grid gap-1 text-sm font-medium">Valor<input required min="0.01" step="0.01" type="number" name="amount" className="h-10 rounded-md border bg-background px-3 text-sm font-normal" /></label><label className="grid gap-1 text-sm font-medium">Data<input required type="date" name="date" defaultValue={today} className="h-10 rounded-md border bg-background px-3 text-sm font-normal" /></label></div>
     <details className="rounded-lg border bg-secondary/35 p-3"><summary className="cursor-pointer text-sm font-semibold">Mais opções</summary><div className="mt-3 grid gap-3 sm:grid-cols-3"><label className="grid gap-1 text-sm font-medium">Fatura<input type="date" name="invoiceDate" className="h-10 rounded-md border bg-background px-3 text-sm font-normal" /></label><label className="grid gap-1 text-sm font-medium">Parcelas<input min="1" defaultValue="1" type="number" name="installments" className="h-10 rounded-md border bg-background px-3 text-sm font-normal" /></label><label className="grid gap-1 text-sm font-medium">Parcela atual<input min="1" defaultValue="1" type="number" name="currentInstallment" className="h-10 rounded-md border bg-background px-3 text-sm font-normal" /></label></div><textarea name="description" className="mt-3 min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Descrição opcional" /></details>
