@@ -59,6 +59,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         ))}
       </section>
 
+      <MonthlyPulse
+        futureExpenses={dashboard.summary.futureExpenses}
+        futureIncomes={dashboard.summary.futureIncomes}
+        paidOutflows={dashboard.summary.paidOutflows}
+        projectedBalance={dashboard.summary.projectedBalance}
+        receivedIncomes={dashboard.summary.incomes}
+        currentInvoice={dashboard.summary.currentInvoice}
+      />
+
       <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <div>
           <BalancePanel rows={dashboard.summary.balanceBreakdown} total={dashboard.summary.balance} />
@@ -128,6 +137,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </Panel>
       </section>
     </div>
+  );
+}
+
+function MonthlyPulse({ futureExpenses, futureIncomes, paidOutflows, projectedBalance, receivedIncomes, currentInvoice }: { futureExpenses: number; futureIncomes: number; paidOutflows: number; projectedBalance: number; receivedIncomes: number; currentInvoice: number }) {
+  return (
+    <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Visão rápida</p><h3 className="mt-1 text-lg font-semibold">Como o mês está se comportando</h3></div>
+        <p className="text-xs text-muted-foreground">Atualizado com os lançamentos do período selecionado</p>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <MiniDashboardStat label="Recebido" value={currency(receivedIncomes)} />
+        <MiniDashboardStat label="A receber" value={currency(futureIncomes)} />
+        <MiniDashboardStat label="Despesas" value={currency(paidOutflows + futureExpenses)} />
+        <MiniDashboardStat label="Cartão" value={currency(currentInvoice)} />
+        <MiniDashboardStat label="Saldo projetado" value={currency(projectedBalance)} />
+      </div>
+    </section>
   );
 }
 
