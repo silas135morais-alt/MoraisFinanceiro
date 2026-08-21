@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { CheckCircle2, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { z } from "zod";
@@ -80,7 +80,7 @@ export function ExpenseCreateAction({ accounts, categories, compact = false }: E
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        setMessage(body?.error ?? "Não foi possível salvar a despesa.");
+        setMessage(body?.error ?? "Não foi possível salvar a despesa. Tente novamente.");
         return;
       }
 
@@ -119,7 +119,7 @@ export function ExpenseCreateAction({ accounts, categories, compact = false }: E
         />
       )}
       {isDisabled ? <p className="text-xs text-muted-foreground">Cadastre pelo menos uma conta e uma categoria de despesa.</p> : null}
-      {message ? <p className="text-sm text-destructive">{message}</p> : null}
+      {message ? <p className="text-sm text-muted-foreground" role="status">{message}</p> : null}
       {isOpen ? (
         <div className="rounded-lg border bg-card p-4 shadow-sm">
           <ExpenseForm accounts={orderedAccounts} categories={orderedCategories} defaultValues={defaultValues} isSubmitting={isSubmitting} onSubmit={handleSubmit} />
@@ -135,42 +135,57 @@ export function ExpenseRowActions({ accounts, categories, expense }: SharedProps
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [retryAction, setRetryAction] = useState<(() => Promise<void>) | null>(null);
 
   async function updateExpense(payload: unknown) {
     setIsSubmitting(true);
     setMessage(null);
-    const response = await fetch(`/api/expenses/${expense.id}`, {
-      body: JSON.stringify(payload),
-      headers: { "Content-Type": "application/json" },
-      method: "PUT",
-    });
-    setIsSubmitting(false);
+    setRetryAction(null);
+    try {
+      const response = await fetch(`/api/expenses/${expense.id}`, {
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      });
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setMessage(body?.error ?? "Nao foi possivel atualizar.");
-      return;
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setMessage(body?.error ?? "Não foi possível atualizar.");
+        setRetryAction(() => () => updateExpense(payload));
+        return;
+      }
+
+      setIsEditing(false);
+      router.refresh();
+    } catch {
+      setMessage("Não foi possível concluir agora. Verifique a conexão.");
+      setRetryAction(() => () => updateExpense(payload));
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsEditing(false);
-    router.refresh();
   }
 
   async function deleteExpense() {
     setIsSubmitting(true);
     setMessage(null);
-    const response = await fetch(`/api/expenses/${expense.id}`, {
-      method: "DELETE",
-    });
-    setIsSubmitting(false);
+    setRetryAction(null);
+    try {
+      const response = await fetch(`/api/expenses/${expense.id}`, { method: "DELETE" });
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setMessage(body?.error ?? "Nao foi possivel apagar.");
-      return;
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setMessage(body?.error ?? "Não foi possível apagar.");
+        setRetryAction(() => () => deleteExpense());
+        return;
+      }
+
+      router.refresh();
+    } catch {
+      setMessage("Não foi possível concluir agora. Verifique a conexão.");
+      setRetryAction(() => () => deleteExpense());
+    } finally {
+      setIsSubmitting(false);
     }
-
-    router.refresh();
   }
 
   return (
@@ -181,9 +196,9 @@ export function ExpenseRowActions({ accounts, categories, expense }: SharedProps
           {isEditing ? "Fechar" : "Corrigir"}
         </Button>
         {expense.status !== "PAID" ? (
-          <Button disabled={isSubmitting} size="sm" type="button" onClick={() => updateExpense({ date: new Date().toISOString().slice(0, 10), status: "PAID" })}>
+          <Button disabled={isSubmitting} size="sm" type="button" onClick={() => void updateExpense({ date: todayInput(), status: "PAID" })}>
             <CheckCircle2 className="size-4" />
-            Pagar
+            {isSubmitting ? "Salvando..." : "Pagar"}
           </Button>
         ) : null}
         <Button disabled={isSubmitting} size="sm" type="button" variant="outline" onClick={() => setIsConfirmingDelete((current) => !current)}>
@@ -191,17 +206,17 @@ export function ExpenseRowActions({ accounts, categories, expense }: SharedProps
           Apagar
         </Button>
       </div>
-      {message ? <p className="text-xs text-destructive">{message}</p> : null}
+      {message ? <div className="flex flex-wrap items-center gap-2 text-xs text-destructive" role="alert"><p>{message}</p>{retryAction ? <Button disabled={isSubmitting} size="sm" type="button" variant="outline" onClick={() => void retryAction()}><RefreshCw className="size-3.5" />Tentar novamente</Button> : null}</div> : null}
       {isConfirmingDelete ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs">
           <p className="font-medium text-destructive">Apagar esta despesa?</p>
-          <p className="mt-1 text-muted-foreground">Essa acao remove tambem a movimentacao vinculada.</p>
+          <p className="mt-1 text-muted-foreground">Essa ação remove também a movimentação vinculada.</p>
           <div className="mt-3 flex gap-2">
             <Button disabled={isSubmitting} size="sm" type="button" variant="outline" onClick={() => setIsConfirmingDelete(false)}>
               Cancelar
             </Button>
-            <Button disabled={isSubmitting} size="sm" type="button" onClick={deleteExpense}>
-              Confirmar
+            <Button disabled={isSubmitting} size="sm" type="button" onClick={() => void deleteExpense()}>
+              {isSubmitting ? "Apagando..." : "Confirmar"}
             </Button>
           </div>
         </div>
