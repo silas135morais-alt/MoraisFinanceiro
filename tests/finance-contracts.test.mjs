@@ -99,6 +99,20 @@ test("99 daily earning form is centralized in income flow", () => {
   assert.match(earningPanel, /Registrar em Receitas/);
 });
 
+test("quick launch keeps frequent actions close", () => {
+  const quickAdd = readFileSync(new URL("../src/components/shared/quick-add-modal.tsx", import.meta.url), "utf8");
+  const filterBar = readFileSync(new URL("../src/components/shared/filter-bar.tsx", import.meta.url), "utf8");
+  const incomeForm = readFileSync(new URL("../src/components/forms/income-form.tsx", import.meta.url), "utf8");
+  const expenseForm = readFileSync(new URL("../src/components/forms/expense-form.tsx", import.meta.url), "utf8");
+
+  assert.match(quickAdd, /Ganho da 99/);
+  assert.match(quickAdd, /Salvar e lançar outro/);
+  assert.match(quickAdd, /last-account-v1/);
+  assert.match(filterBar, /quickFilters/);
+  assert.match(incomeForm, /Mais opções/);
+  assert.match(expenseForm, /Mais opções/);
+});
+
 test("operational routes exist for core production flows", () => {
   [
     "../src/app/api/month-closing/confirm/route.ts",
