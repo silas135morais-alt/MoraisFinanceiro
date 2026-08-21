@@ -104,7 +104,7 @@ export const personalDebtSchema = z.object({
   title: z.string().min(2),
   originalAmount: money,
   outstandingBalance: money,
-  interestRate: z.coerce.number().min(0).default(0),
+  interestRate: z.coerce.number().finite().min(0).max(100).default(0),
   dueDate: dateString.optional().nullable(),
   priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).default("URGENT"),
   status: z.enum(["OPEN", "PAID", "CANCELED"]).default("OPEN"),
