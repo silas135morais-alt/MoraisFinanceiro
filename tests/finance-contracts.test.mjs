@@ -166,6 +166,22 @@ test("personal debt interest and diagnostic simulation remain explicit", () => {
   assert.match(diagnosticPanel, /Juros do próximo mês/);
 });
 
+test("financing has a dedicated create and edit flow instead of only a filter", () => {
+  const financingPage = readFileSync(new URL("../src/app/(protected)/app/financiamentos/page.tsx", import.meta.url), "utf8");
+  const financingActions = readFileSync(new URL("../src/app/(protected)/app/financiamentos/financing-actions.tsx", import.meta.url), "utf8");
+  const expensesPage = readFileSync(new URL("../src/app/(protected)/app/despesas/page.tsx", import.meta.url), "utf8");
+
+  assert.doesNotMatch(financingPage, /redirect\(/);
+  assert.match(financingPage, /<FinancingActions/);
+  assert.match(financingActions, /Novo financiamento/);
+  assert.match(financingActions, /\/api\/financings/);
+  assert.match(financingActions, /Salvar correção/);
+  assert.match(financingActions, /Arquivar/);
+  assert.match(expensesPage, /Gerenciar financiamentos/);
+  assert.match(expensesPage, /<FinancingActions/);
+  assert.match(expensesPage, /params: \{ type: "FINANCING" \}/);
+});
+
 test("operational routes exist for core production flows", () => {
   [
     "../src/app/api/month-closing/confirm/route.ts",
