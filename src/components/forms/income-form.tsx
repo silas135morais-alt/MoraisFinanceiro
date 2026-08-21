@@ -24,13 +24,8 @@ export function IncomeForm({ accounts = [], categories = [], defaultValues, isSu
   return (
     <form className="grid gap-3" onSubmit={form.handleSubmit(onSubmit)}>
       <label className="grid gap-1 text-sm font-medium">
-        Titulo
-        <input
-          autoFocus
-          className="h-10 rounded-md border bg-background px-3 text-sm font-normal"
-          placeholder="Ex.: Salario"
-          {...form.register("title")}
-        />
+        Título
+        <input autoFocus className="h-10 rounded-md border bg-background px-3 text-sm font-normal" placeholder="Ex.: Salário ou trabalho extra" {...form.register("title")} />
         {form.formState.errors.title ? <span className="text-xs text-destructive">{form.formState.errors.title.message}</span> : null}
       </label>
 
@@ -39,24 +34,16 @@ export function IncomeForm({ accounts = [], categories = [], defaultValues, isSu
           Categoria
           <select className="h-10 rounded-md border bg-background px-3 text-sm font-normal" {...form.register("categoryId")}>
             <option value="">Selecione</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
+            {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
           </select>
           {form.formState.errors.categoryId ? <span className="text-xs text-destructive">{form.formState.errors.categoryId.message}</span> : null}
         </label>
 
         <label className="grid gap-1 text-sm font-medium">
-          Conta
+          Conta que recebeu
           <select className="h-10 rounded-md border bg-background px-3 text-sm font-normal" {...form.register("accountId")}>
             <option value="">Selecione</option>
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
+            {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
           </select>
           {form.formState.errors.accountId ? <span className="text-xs text-destructive">{form.formState.errors.accountId.message}</span> : null}
         </label>
@@ -76,31 +63,34 @@ export function IncomeForm({ accounts = [], categories = [], defaultValues, isSu
         </label>
       </div>
 
-      <label className="grid gap-1 text-sm font-medium">
-        Descricao
-        <textarea className="min-h-20 rounded-md border bg-background px-3 py-2 text-sm font-normal" placeholder="Observacoes da receita" {...form.register("description")} />
-      </label>
-
-      <div className="grid gap-3 rounded-lg border bg-secondary/35 p-3 sm:grid-cols-[1fr_220px_160px]">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input className="size-4 rounded border" type="checkbox" {...form.register("isRecurring")} />
-          Repetir automaticamente nos proximos meses.
+      <details className="rounded-lg border bg-secondary/35 p-3">
+        <summary className="cursor-pointer text-sm font-semibold">Mais opções</summary>
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_220px]">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input className="size-4 rounded border" type="checkbox" {...form.register("isRecurring")} />
+            Repetir automaticamente nos próximos meses
+          </label>
+          <select className="h-10 rounded-md border bg-background px-3 text-sm" {...form.register("recurrenceFrequency")}>
+            <option value="MONTHLY">Mensal</option>
+            <option value="BIWEEKLY">Quinzenal</option>
+            <option value="WEEKLY">Semanal</option>
+            <option value="YEARLY">Anual</option>
+          </select>
+        </div>
+        <div className="mt-3 grid gap-1 text-sm font-medium">
+          Situação
+          <select className="h-10 rounded-md border bg-background px-3 text-sm font-normal" {...form.register("status")}>
+            <option value="PENDING">A receber</option>
+            <option value="PAID">Recebida</option>
+            <option value="OVERDUE">Atrasada</option>
+            <option value="CANCELED">Cancelada</option>
+          </select>
+        </div>
+        <label className="mt-3 grid gap-1 text-sm font-medium">
+          Observação
+          <textarea className="min-h-20 rounded-md border bg-background px-3 py-2 text-sm font-normal" placeholder="Observação opcional" {...form.register("description")} />
         </label>
-
-        <select className="h-10 rounded-md border bg-background px-3 text-sm" {...form.register("recurrenceFrequency")}>
-          <option value="MONTHLY">Mensal</option>
-          <option value="BIWEEKLY">Quinzenal</option>
-          <option value="WEEKLY">Semanal</option>
-          <option value="YEARLY">Anual</option>
-        </select>
-
-        <select className="h-10 rounded-md border bg-background px-3 text-sm" {...form.register("status")}>
-          <option value="PENDING">Pendente</option>
-          <option value="PAID">Recebida</option>
-          <option value="OVERDUE">Atrasada</option>
-          <option value="CANCELED">Cancelada</option>
-        </select>
-      </div>
+      </details>
 
       <Button className="mt-2 w-full sm:w-fit" disabled={isSubmitting} type="submit">
         {isSubmitting ? "Salvando..." : "Salvar receita"}
