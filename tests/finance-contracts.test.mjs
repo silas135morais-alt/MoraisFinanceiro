@@ -13,6 +13,10 @@ const driverDailyMigration = readFileSync(
   new URL("../prisma/migrations/20260820190000_driver_daily_earnings/migration.sql", import.meta.url),
   "utf8",
 );
+const debtInterestMigration = readFileSync(
+  new URL("../prisma/migrations/20260821190000_personal_debt_daily_interest/migration.sql", import.meta.url),
+  "utf8",
+);
 
 test("schema contains required financial models", () => {
   [
@@ -38,6 +42,7 @@ test("schema contains required financial models", () => {
     "AuditLog",
     "DriverProfile",
     "DriverDailyEarning",
+    "PersonalDebt",
   ].forEach((model) => assert.match(schema, new RegExp(`model ${model} \\{`)));
 });
 
@@ -61,6 +66,14 @@ test("driver daily earnings migration protects one realized entry per day", () =
   assert.match(driverDailyMigration, /CREATE TABLE "DriverDailyEarning"/);
   assert.match(driverDailyMigration, /CREATE UNIQUE INDEX "DriverDailyEarning_userId_date_key"/);
   assert.match(driverDailyMigration, /REFERENCES "Income"\("id"\)/);
+});
+
+test("personal debt interest migration stores the daily calculation base", () => {
+  assert.match(schema, /interestBaseBalance Decimal\?/);
+  assert.match(schema, /interestStartedAt\s+DateTime\?/);
+  assert.match(debtInterestMigration, /ADD COLUMN "interestBaseBalance" DECIMAL/);
+  assert.match(debtInterestMigration, /ADD COLUMN "interestStartedAt" TIMESTAMP/);
+  assert.match(debtInterestMigration, /SET "interestBaseBalance" = "outstandingBalance"/);
 });
 
 test("operational cycle migration creates closing, notifications and history", () => {
@@ -113,6 +126,10 @@ test("quick launch keeps frequent actions close", () => {
   assert.match(incomeForm, /Já recebida/);
   assert.match(expenseForm, /Recorrência/);
   assert.match(expenseForm, /Já paga/);
+  assert.match(expenseForm, /Tipo de despesa/);
+  assert.doesNotMatch(expenseForm, /Mais detalhes/);
+  assert.doesNotMatch(expenseForm, />Parcelas</);
+  assert.match(quickAdd, /name="installments"/);
 });
 
 test("daily navigation and multi-entry controls stay intentionally simple", () => {
@@ -130,6 +147,23 @@ test("daily navigation and multi-entry controls stay intentionally simple", () =
   assert.match(quickAdd, /Continuar lançando/);
   assert.match(quickAdd, /role="switch"/);
   assert.match(button, /active:scale-\[0\.98\]/);
+});
+
+test("personal debt interest and diagnostic simulation remain explicit", () => {
+  const debtBoard = readFileSync(new URL("../src/app/(protected)/app/dividas/debt-board.tsx", import.meta.url), "utf8");
+  const debtService = readFileSync(new URL("../src/services/personal-debt-service.ts", import.meta.url), "utf8");
+  const diagnosticService = readFileSync(new URL("../src/services/diagnostic-service.ts", import.meta.url), "utf8");
+  const diagnosticPanel = readFileSync(new URL("../src/app/(protected)/app/diagnostico/diagnostic-panel.tsx", import.meta.url), "utf8");
+
+  assert.match(debtBoard, /Aplicar juros mensais/);
+  assert.match(debtBoard, /aria-label="Taxa de juros mensais"/);
+  assert.match(debtBoard, /saldo atualizado/);
+  assert.match(debtService, /interestStartedAt/);
+  assert.match(debtService, /Math\.pow\(1 \+ monthlyRate \/ 100/);
+  assert.match(debtService, /accruedInterest/);
+  assert.match(diagnosticService, /calculatePersonalDebtBalance/);
+  assert.match(diagnosticPanel, /simulatePayoff/);
+  assert.match(diagnosticPanel, /Juros do próximo mês/);
 });
 
 test("operational routes exist for core production flows", () => {
