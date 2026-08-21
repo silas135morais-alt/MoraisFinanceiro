@@ -29,9 +29,13 @@ type Overview = {
 };
 
 type Props = {
-  onSaved?: () => Promise<void> | void;
+  onSaved?: (accountId?: string) => Promise<void> | void;
   compact?: boolean;
+  preferredAccountId?: string;
+  sectionId?: string;
 };
+
+const LAST_ACCOUNT_STORAGE_KEY = "morais-financeiro-last-account-v1";
 
 function todayInput() {
   const date = new Date();
@@ -43,7 +47,7 @@ function feedback(difference: number) {
   return `Abaixo da meta em ${currency(Math.abs(difference))}`;
 }
 
-export function DriverDailyEarningPanel({ onSaved, compact = false }: Props) {
+export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAccountId, sectionId = "ganho-99" }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const edit99Id = searchParams.get("edit99");
@@ -52,6 +56,7 @@ export function DriverDailyEarningPanel({ onSaved, compact = false }: Props) {
   const [date, setDate] = useState(() => todayInput());
   const [grossAmount, setGrossAmount] = useState("");
   const [accountId, setAccountId] = useState("");
+  const [lastAccountId, setLastAccountId] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem(LAST_ACCOUNT_STORAGE_KEY) ?? ""));
   const [notes, setNotes] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,13 +81,14 @@ export function DriverDailyEarningPanel({ onSaved, compact = false }: Props) {
       if (!accountResponse.ok) throw new Error(accountPayload.error ?? "Não foi possível carregar as contas.");
       const nextAccounts = (accountPayload.data ?? accountPayload) as Account[];
       setAccounts(nextAccounts.map((account) => ({ id: account.id, name: account.name })));
-      setAccountId((current) => current || nextAccounts[0]?.id || "");
+      const preferred = preferredAccountId || lastAccountId;
+      setAccountId((current) => current || (preferred && nextAccounts.some((account) => account.id === preferred) ? preferred : nextAccounts[0]?.id || ""));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível carregar o registro diário.");
     } finally {
       setLoading(false);
     }
-  }, [compact]);
+  }, [compact, lastAccountId, preferredAccountId]);
 
   useEffect(() => {
     void load();
@@ -118,11 +124,15 @@ export function DriverDailyEarningPanel({ onSaved, compact = false }: Props) {
     const entry = overview.entries.find((item) => item.id === edit99Id);
     if (!entry) return;
     edit(entry);
-    window.setTimeout(() => document.getElementById("ganho-99")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-  }, [compact, edit, edit99Id, overview]);
+    window.setTimeout(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  }, [compact, edit, edit99Id, overview, sectionId]);
 
   async function refreshAfterSave() {
-    await onSaved?.();
+    if (accountId) {
+      window.localStorage.setItem(LAST_ACCOUNT_STORAGE_KEY, accountId);
+      setLastAccountId(accountId);
+    }
+    await onSaved?.(accountId);
     router.refresh();
   }
 
@@ -200,7 +210,7 @@ export function DriverDailyEarningPanel({ onSaved, compact = false }: Props) {
   }
 
   return (
-    <section id="ganho-99" className="scroll-mt-6 rounded-lg border bg-card p-5 shadow-sm">
+    <section id={sectionId} className="scroll-mt-6 rounded-lg border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-semibold">Ganho da 99</h3>
@@ -211,7 +221,7 @@ export function DriverDailyEarningPanel({ onSaved, compact = false }: Props) {
 
       <form onSubmit={save} className="mt-4 grid gap-3 rounded-lg bg-secondary/45 p-4 md:grid-cols-4">
         <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Dia trabalhado</span><input required type="date" max={todayInput()} value={date} onChange={(event) => setDate(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" /></label>
-        <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Quanto fez no dia</span><span className="flex items-center rounded-lg border bg-background px-3"><span className="mr-2 text-xs text-muted-foreground">R$</span><input required min="0.01" step="0.01" type="number" value={grossAmount} onChange={(event) => setGrossAmount(event.target.value)} className="w-full bg-transparent py-2 text-sm outline-none" placeholder="0,00" /></span></label>
+        <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Quanto fez no dia</span><span className="flex items-center rounded-lg border bg-background px-3"><span className="mr-2 text-xs text-muted-foreground">R$</span><input autoFocus required min="0.01" step="0.01" type="number" value={grossAmount} onChange={(event) => setGrossAmount(event.target.value)} className="w-full bg-transparent py-2 text-sm outline-none" placeholder="0,00" /></span></label>
         <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Recebi em</span><select required value={accountId} onChange={(event) => setAccountId(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm"><option value="">Selecione a conta</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
         <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Observação (opcional)</span><input value={notes} onChange={(event) => setNotes(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Ex.: chuva, dia curto" /></label>
         <div className="flex flex-wrap items-center gap-2 md:col-span-4">
