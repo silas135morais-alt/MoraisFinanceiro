@@ -12,6 +12,7 @@ import { accountService } from "@/services/account-service";
 import { categoryService } from "@/services/category-service";
 import { incomeService } from "@/services/income-service";
 
+import { DriverDailyEarningPanel } from "../diagnostico/driver-daily-earning-panel";
 import { IncomeCreateAction } from "./income-create-action";
 import { IncomeRowActions } from "./income-row-actions";
 
@@ -63,6 +64,7 @@ export default async function ReceitasPage({ searchParams }: ReceitasPageProps) 
         isRecurring: income.isRecurring,
         status: resolveTransactionStatus(income.status, income.date),
         title: income.title,
+        driverDailyEarningId: income.driverDailyEarning?.id,
       }}
     />,
   ]);
@@ -73,6 +75,8 @@ export default async function ReceitasPage({ searchParams }: ReceitasPageProps) 
         accounts={accountOptions}
         categories={categoryOptions}
       />
+
+      <DriverDailyEarningPanel />
 
       <section className="grid gap-4 md:grid-cols-3">
         <SummaryCard title="Recebido" value={currency(paidTotal)} helper={`${data.total} receitas cadastradas`} icon={Wallet} tone="emerald" />

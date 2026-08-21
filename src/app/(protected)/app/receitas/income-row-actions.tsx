@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CheckCircle2, Pencil, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -22,6 +23,7 @@ type IncomeItem = {
   isRecurring: boolean;
   status: "PAID" | "PENDING" | "OVERDUE" | "CANCELED";
   title: string;
+  driverDailyEarningId?: string;
 };
 
 type IncomeRowActionsProps = {
@@ -36,6 +38,7 @@ export function IncomeRowActions({ accounts, categories, income }: IncomeRowActi
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const isDriverDailyEarning = Boolean(income.driverDailyEarningId);
 
   async function updateIncome(payload: unknown) {
     setIsSubmitting(true);
@@ -60,9 +63,8 @@ export function IncomeRowActions({ accounts, categories, income }: IncomeRowActi
   async function deleteIncome() {
     setIsSubmitting(true);
     setMessage(null);
-    const response = await fetch(`/api/incomes/${income.id}`, {
-      method: "DELETE",
-    });
+    const endpoint = isDriverDailyEarning ? `/api/motorista-99/realizado/${income.driverDailyEarningId}` : `/api/incomes/${income.id}`;
+    const response = await fetch(endpoint, { method: "DELETE" });
     setIsSubmitting(false);
 
     if (!response.ok) {
@@ -77,12 +79,22 @@ export function IncomeRowActions({ accounts, categories, income }: IncomeRowActi
   return (
     <div className="min-w-56 space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" type="button" variant="outline" onClick={() => setIsEditing((current) => !current)}>
-          {isEditing ? <X className="size-4" /> : <Pencil className="size-4" />}
-          {isEditing ? "Fechar" : "Corrigir"}
-        </Button>
+        {isDriverDailyEarning ? (
+          <Link
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+            href={`/app/receitas?edit99=${income.driverDailyEarningId}#ganho-99`}
+          >
+            <Pencil className="size-4" />
+            Corrigir ganho
+          </Link>
+        ) : (
+          <Button size="sm" type="button" variant="outline" onClick={() => setIsEditing((current) => !current)}>
+            {isEditing ? <X className="size-4" /> : <Pencil className="size-4" />}
+            {isEditing ? "Fechar" : "Corrigir"}
+          </Button>
+        )}
 
-        {income.status !== "PAID" ? (
+        {!isDriverDailyEarning && income.status !== "PAID" ? (
           <Button
             disabled={isSubmitting}
             size="sm"
@@ -111,7 +123,7 @@ export function IncomeRowActions({ accounts, categories, income }: IncomeRowActi
       {isConfirmingDelete ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs">
           <p className="font-medium text-destructive">Apagar esta receita?</p>
-          <p className="mt-1 text-muted-foreground">Essa acao remove tambem a movimentacao vinculada.</p>
+          <p className="mt-1 text-muted-foreground">{isDriverDailyEarning ? "Essa ação remove também o realizado diário e a movimentação vinculada." : "Essa ação remove também a movimentação vinculada."}</p>
           <div className="mt-3 flex gap-2">
             <Button disabled={isSubmitting} size="sm" type="button" variant="outline" onClick={() => setIsConfirmingDelete(false)}>
               Cancelar
@@ -123,7 +135,7 @@ export function IncomeRowActions({ accounts, categories, income }: IncomeRowActi
         </div>
       ) : null}
 
-      {isEditing ? (
+      {isEditing && !isDriverDailyEarning ? (
         <div className="rounded-lg border bg-background p-3">
           <IncomeForm
             accounts={accounts}
