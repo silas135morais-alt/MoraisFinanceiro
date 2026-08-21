@@ -125,3 +125,23 @@ test("operational routes exist for core production flows", () => {
     "../src/app/api/motorista-99/realizado/[id]/route.ts",
   ].forEach((route) => assert.equal(existsSync(new URL(route, import.meta.url)), true, route));
 });
+
+test("fast launch responds immediately and preserves recent choices", () => {
+  const quickAdd = readFileSync(new URL("../src/components/shared/quick-add-modal.tsx", import.meta.url), "utf8");
+  const recentPreferences = readFileSync(new URL("../src/lib/recent-preferences.ts", import.meta.url), "utf8");
+  const dateInput = readFileSync(new URL("../src/lib/date-input.ts", import.meta.url), "utf8");
+  const incomePage = readFileSync(new URL("../src/app/(protected)/app/receitas/page.tsx", import.meta.url), "utf8");
+  const expensePage = readFileSync(new URL("../src/app/(protected)/app/despesas/page.tsx", import.meta.url), "utf8");
+  const filterBar = readFileSync(new URL("../src/components/shared/filter-bar.tsx", import.meta.url), "utf8");
+
+  assert.match(quickAdd, /submittingRef\.current/);
+  assert.match(quickAdd, /Salvo\. Você pode registrar o próximo\./);
+  assert.match(quickAdd, /prioritizeRecentOptions/);
+  assert.match(recentPreferences, /count/);
+  assert.match(recentPreferences, /lastUsed/);
+  assert.match(dateInput, /getFullYear/);
+  assert.match(incomePage, /Este mês/);
+  assert.match(expensePage, /Este mês/);
+  assert.match(expensePage, /Cartão/);
+  assert.match(filterBar, /filter\.href/);
+});
