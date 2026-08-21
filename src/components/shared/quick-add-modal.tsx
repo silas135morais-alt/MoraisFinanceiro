@@ -1,6 +1,6 @@
 "use client";
 
-import { CarFront, CreditCard, Plus, Receipt, Star, Wallet, X } from "lucide-react";
+import { CarFront, Check, ChevronDown, CreditCard, Plus, Receipt, Repeat2, Star, Wallet, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
@@ -201,10 +201,15 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
               <ShortcutButton active={mode === "card"} onClick={() => chooseMode("card")} icon={<CreditCard className="size-4" />}>Compra no cartão</ShortcutButton>
             </div>
 
-            <label className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-              <input checked={continueAdding} className="size-4 rounded border" onChange={(event) => setContinueAdding(event.target.checked)} type="checkbox" />
-              Salvar e lançar outro
-            </label>
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border bg-primary/[0.04] px-3.5 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Repeat2 className="size-4" /></span>
+                <div className="min-w-0"><p className="text-sm font-semibold">Continuar lançando</p><p className="text-xs text-muted-foreground">Depois de salvar, o próximo formulário abre limpo.</p></div>
+              </div>
+              <button type="button" role="switch" aria-checked={continueAdding} onClick={() => setContinueAdding((current) => !current)} className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 ${continueAdding ? "bg-primary" : "bg-muted"}`}>
+                <span className={`flex size-5 items-center justify-center rounded-full bg-white shadow-sm transition-transform ${continueAdding ? "translate-x-5" : "translate-x-0"}`}>{continueAdding ? <Check className="size-3 text-primary" /> : null}</span>
+              </button>
+            </div>
 
             <div className="mt-4 rounded-lg border bg-secondary/25 p-3">
               <div className="flex items-center justify-between gap-3">
@@ -222,10 +227,10 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
             {message ? <p role="status" className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200">{message}</p> : null}
             {error ? <p role="alert" className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
             <div className="mt-5">
-              {mode === "driver99" ? <DriverDailyEarningPanel compact={false} onSaved={handleDriverSaved} preferredAccountId={preferredAccountId} sectionId="ganho-99-quick" /> : null}
-              {mode === "income" ? <IncomeForm key={`income-${formKey}`} accounts={orderedAccounts} categories={orderedIncomeCategories} isSubmitting={isSubmitting} defaultValues={{ accountId: preferredAccountId, categoryId: preferredIncomeCategoryId, date: today, status: "PENDING", isRecurring: false, recurrenceFrequency: "MONTHLY" }} onSubmit={submitIncome} /> : null}
-              {mode === "expense" ? <ExpenseForm key={`expense-${formKey}`} accounts={orderedAccounts} categories={orderedExpenseCategories} isSubmitting={isSubmitting} defaultValues={{ accountId: preferredAccountId, categoryId: preferredExpenseCategoryId, date: today, dueDate: today, status: "PENDING", type: "ONE_TIME", installments: 1, isRecurring: false, recurrenceFrequency: "MONTHLY" }} onSubmit={submitExpense} /> : null}
-              {mode === "card" ? <CardPurchaseForm key={`card-${formKey}`} cards={orderedCards} categories={orderedExpenseCategories} today={today} defaultCardId={preferredCardId} defaultCategoryId={preferredExpenseCategoryId} isSubmitting={isSubmitting} onSubmit={submitCard} /> : null}
+              {mode === "driver99" ? <DriverDailyEarningPanel compact={false} onSaved={handleDriverSaved} preferredAccountId={preferredAccountId} sectionId="ganho-99-quick" continueAdding={continueAdding} /> : null}
+              {mode === "income" ? <IncomeForm key={`income-${formKey}`} accounts={orderedAccounts} categories={orderedIncomeCategories} isSubmitting={isSubmitting} continueAdding={continueAdding} defaultValues={{ accountId: preferredAccountId, categoryId: preferredIncomeCategoryId, date: today, status: "PENDING", isRecurring: false, recurrenceFrequency: "MONTHLY" }} onSubmit={submitIncome} /> : null}
+              {mode === "expense" ? <ExpenseForm key={`expense-${formKey}`} accounts={orderedAccounts} categories={orderedExpenseCategories} isSubmitting={isSubmitting} continueAdding={continueAdding} defaultValues={{ accountId: preferredAccountId, categoryId: preferredExpenseCategoryId, date: today, dueDate: today, status: "PENDING", type: "ONE_TIME", installments: 1, isRecurring: false, recurrenceFrequency: "MONTHLY" }} onSubmit={submitExpense} /> : null}
+              {mode === "card" ? <CardPurchaseForm key={`card-${formKey}`} cards={orderedCards} categories={orderedExpenseCategories} today={today} defaultCardId={preferredCardId} defaultCategoryId={preferredExpenseCategoryId} isSubmitting={isSubmitting} continueAdding={continueAdding} onSubmit={submitCard} /> : null}
             </div>
           </div>
         </div>
@@ -255,16 +260,17 @@ function ShortcutButton({ active, onClick, icon, children }: { active: boolean; 
   return <button type="button" onClick={onClick} className={active ? "flex touch-manipulation items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-sm active:scale-[0.97]" : "flex touch-manipulation items-center justify-center gap-2 rounded-md border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-transform active:scale-[0.97] hover:bg-secondary hover:text-foreground"}>{icon}{children}</button>;
 }
 
-function CardPurchaseForm({ cards, categories, today, defaultCardId, defaultCategoryId, isSubmitting, onSubmit }: { cards: Option[]; categories: Option[]; today: string; defaultCardId: string; defaultCategoryId: string; isSubmitting: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+function CardPurchaseForm({ cards, categories, today, defaultCardId, defaultCategoryId, isSubmitting, continueAdding, onSubmit }: { cards: Option[]; categories: Option[]; today: string; defaultCardId: string; defaultCategoryId: string; isSubmitting: boolean; continueAdding: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
   if (!cards.length) return <p className="rounded-lg border bg-secondary/55 p-4 text-sm text-muted-foreground">Cadastre um cartão antes de registrar compras nessa aba.</p>;
   if (!categories.length) return <p className="rounded-lg border bg-secondary/55 p-4 text-sm text-muted-foreground">Cadastre uma categoria de despesa antes de registrar compras no cartão.</p>;
 
   return     <form className="grid gap-3" onSubmit={onSubmit} aria-busy={isSubmitting}>
       {isSubmitting ? <p role="status" className="text-xs text-muted-foreground">Salvando seu lançamento...</p> : null}
     <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium">Compra<input autoFocus required name="title" className="h-10 rounded-md border bg-background px-3 text-sm font-normal" placeholder="Ex.: Mercado" /></label><label className="grid gap-1 text-sm font-medium">Cartão<select required name="cardId" defaultValue={defaultCardId} className="h-10 rounded-md border bg-background px-3 text-sm font-normal">{cards.map((card) => <option key={card.id} value={card.id}>{card.name}</option>)}</select></label></div>
-    <div className="grid gap-3 sm:grid-cols-3"><label className="grid gap-1 text-sm font-medium">Categoria<select required name="categoryId" defaultValue={defaultCategoryId} className="h-10 rounded-md border bg-background px-3 text-sm font-normal">{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label className="grid gap-1 text-sm font-medium">Valor<input required min="0.01" step="0.01" type="number" name="amount" className="h-10 rounded-md border bg-background px-3 text-sm font-normal" /></label><label className="grid gap-1 text-sm font-medium">Data<input required type="date" name="date" defaultValue={today} className="h-10 rounded-md border bg-background px-3 text-sm font-normal" /></label></div>
-    <details className="rounded-lg border bg-secondary/35 p-3"><summary className="cursor-pointer text-sm font-semibold">Mais opções</summary><div className="mt-3 grid gap-3 sm:grid-cols-3"><label className="grid gap-1 text-sm font-medium">Fatura<input type="date" name="invoiceDate" className="h-10 rounded-md border bg-background px-3 text-sm font-normal" /></label><label className="grid gap-1 text-sm font-medium">Parcelas<input min="1" defaultValue="1" type="number" name="installments" className="h-10 rounded-md border bg-background px-3 text-sm font-normal" /></label><label className="grid gap-1 text-sm font-medium">Parcela atual<input min="1" defaultValue="1" type="number" name="currentInstallment" className="h-10 rounded-md border bg-background px-3 text-sm font-normal" /></label></div><textarea name="description" className="mt-3 min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Descrição opcional" /></details>
+    <div className="grid gap-3 sm:grid-cols-3"><label className="grid gap-1.5 text-sm font-medium">Categoria<select required name="categoryId" defaultValue={defaultCategoryId} className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm">{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label className="grid gap-1.5 text-sm font-medium">Valor<input required min="0.01" step="0.01" type="number" name="amount" className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" /></label><label className="grid gap-1.5 text-sm font-medium">Data<input required type="date" name="date" defaultValue={today} className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" /></label></div>
+    <div className="grid gap-3 rounded-xl border bg-secondary/25 p-3 sm:grid-cols-3"><label className="grid gap-1.5 text-sm font-medium">Fatura<input type="date" name="invoiceDate" className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" /></label><label className="grid gap-1.5 text-sm font-medium">Parcelas<input min="1" defaultValue="1" type="number" name="installments" className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" /></label><label className="grid gap-1.5 text-sm font-medium">Parcela atual<input min="1" defaultValue="1" type="number" name="currentInstallment" className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" /></label></div>
+    <details className="group rounded-xl border bg-background/60 px-3 py-2.5"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-muted-foreground">Descrição opcional<ChevronDown className="size-4 transition-transform group-open:rotate-180" /></summary><textarea name="description" className="mt-3 min-h-20 w-full rounded-xl border bg-background px-3 py-2 text-sm" placeholder="Alguma informação útil sobre esta compra" /></details>
     <p className="text-xs text-muted-foreground">Compras parceladas entram no controle de faturas e no acompanhamento de compromissos.</p>
-    <button type="submit" disabled={isSubmitting} className="mt-2 w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:w-fit">{isSubmitting ? "Salvando..." : "Salvar compra"}</button>
+    <button type="submit" disabled={isSubmitting} className="mt-2 w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:w-fit">{isSubmitting ? "Salvando..." : continueAdding ? <><Check className="size-4" /> Salvar e lançar outro</> : "Salvar compra"}</button>
   </form>;
 }
