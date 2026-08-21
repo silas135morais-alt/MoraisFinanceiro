@@ -614,6 +614,8 @@ model PersonalDebt {
   originalAmount     Decimal              @db.Decimal(14, 2)
   outstandingBalance Decimal              @db.Decimal(14, 2)
   interestRate       Decimal              @default(0) @db.Decimal(8, 4)
+  interestBaseBalance Decimal?            @db.Decimal(14, 2)
+  interestStartedAt  DateTime?
   dueDate            DateTime?
   priority           PersonalDebtPriority @default(URGENT)
   status             PersonalDebtStatus   @default(OPEN)
