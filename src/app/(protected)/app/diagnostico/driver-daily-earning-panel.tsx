@@ -33,6 +33,7 @@ type Props = {
   compact?: boolean;
   preferredAccountId?: string;
   sectionId?: string;
+  continueAdding?: boolean;
 };
 
 const LAST_ACCOUNT_STORAGE_KEY = "morais-financeiro-last-account-v1";
@@ -47,7 +48,7 @@ function feedback(difference: number) {
   return `Abaixo da meta em ${currency(Math.abs(difference))}`;
 }
 
-export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAccountId, sectionId = "ganho-99" }: Props) {
+export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAccountId, sectionId = "ganho-99", continueAdding = false }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const edit99Id = searchParams.get("edit99");
@@ -243,7 +244,7 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
         <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Recebi em</span><select required value={accountId} onChange={(event) => setAccountId(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm"><option value="">Selecione a conta</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
         <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Observação (opcional)</span><input value={notes} onChange={(event) => setNotes(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Ex.: chuva, dia curto" /></label>
         <div className="flex flex-wrap items-center gap-2 md:col-span-4">
-          <button type="submit" disabled={saving || loading || accounts.length === 0} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saving ? "Salvando..." : editingId ? "Salvar correção" : "Registrar ganho"}</button>
+          <button type="submit" disabled={saving || loading || accounts.length === 0} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saving ? "Salvando..." : editingId ? "Salvar correção" : continueAdding ? "Salvar e lançar outro" : "Registrar ganho"}</button>
           {editingId ? <button type="button" onClick={() => resetForm()} className="rounded-lg border px-4 py-2 text-sm font-semibold">Cancelar</button> : null}
           {previewDifference !== null ? <span className={`text-xs font-medium ${previewDifference >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>{feedback(previewDifference)}</span> : null}
         </div>
