@@ -14,6 +14,10 @@ function statsKey(key: string) {
   return `${key}-stats-v1`;
 }
 
+function favoritesKey(key: string) {
+  return `${key}-favorites-v1`;
+}
+
 function getStorage(): Storage | null {
   if (typeof window === "undefined") return null;
   try {
@@ -63,11 +67,47 @@ export function rememberRecentPreference(key: string, id: string) {
   }
 }
 
+export function readFavoritePreferences(key: string) {
+  const storage = getStorage();
+  if (!storage) return [];
+
+  try {
+    const raw = storage.getItem(favoritesKey(key));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function isFavoritePreference(key: string, id: string) {
+  return Boolean(id) && readFavoritePreferences(key).includes(id);
+}
+
+export function toggleFavoritePreference(key: string, id: string) {
+  if (!id) return false;
+  const storage = getStorage();
+  if (!storage) return false;
+
+  const current = readFavoritePreferences(key);
+  const next = current.includes(id) ? current.filter((value) => value !== id) : [...current, id];
+
+  try {
+    storage.setItem(favoritesKey(key), JSON.stringify(next));
+  } catch {
+    // Favorites are an enhancement and must never block a financial action.
+  }
+
+  return next.includes(id);
+}
+
 export function prioritizeRecentOptions<T extends RecentOption>(options: T[], key: string) {
   const recent = readMap(key);
+  const favorites = new Set(readFavoritePreferences(key));
   return options
-    .map((option, index) => ({ option, index, recent: recent[option.id] }))
+    .map((option, index) => ({ option, index, recent: recent[option.id], favorite: favorites.has(option.id) }))
     .sort((left, right) => {
+      if (left.favorite !== right.favorite) return left.favorite ? -1 : 1;
       const countDifference = (right.recent?.count ?? 0) - (left.recent?.count ?? 0);
       if (countDifference !== 0) return countDifference;
       const lastUsedDifference = (right.recent?.lastUsed ?? 0) - (left.recent?.lastUsed ?? 0);
