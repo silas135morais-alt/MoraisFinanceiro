@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SummaryCard } from "@/components/shared/summary-card";
 import { requireUserId } from "@/lib/auth-guard";
 import { getMonthRange } from "@/lib/date-range";
+import { todayInput } from "@/lib/date-input";
 import { currency, shortDate } from "@/lib/format";
 import { firstParam, monthParamToDate } from "@/lib/month-param";
 import { resolveTransactionStatus, statusLabel } from "@/lib/transaction-status";
@@ -117,9 +118,11 @@ export default async function DespesasPage({ searchParams }: DespesasPageProps) 
         <FilterBar
           placeholder="Pesquisar despesas"
           quickFilters={[
+            { label: "Este mês", params: { month: todayInput().slice(0, 7) }, clear: ["q", "status", "type"] },
             { label: "Pendentes", params: { status: "PENDING" }, clear: ["q", "type"] },
             { label: "Atrasadas", params: { status: "OVERDUE" }, clear: ["q", "type"] },
             { label: "Financiamentos", params: { type: "FINANCING" }, clear: ["q", "status"] },
+            { label: "Cartão", href: `/app/cartoes?month=${encodeURIComponent(firstParam(params.month) ?? todayInput().slice(0, 7))}` },
             { label: "Limpar filtros", clear: ["q", "status", "type"] },
           ]}
         />

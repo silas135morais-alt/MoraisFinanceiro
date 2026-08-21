@@ -8,6 +8,8 @@ import type { z } from "zod";
 import { ExpenseForm } from "@/components/forms/expense-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
+import { todayInput } from "@/lib/date-input";
+import { prioritizeRecentOptions, readLastPreference, rememberRecentPreference } from "@/lib/recent-preferences";
 import { expenseSchema } from "@/validators/finance";
 
 type SelectOption = {
@@ -43,15 +45,17 @@ export function ExpenseCreateAction({ accounts, categories, compact = false }: E
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [lastAccountId] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem("morais-financeiro-last-account-v1") ?? ""));
-  const [lastCategoryId] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem("morais-financeiro-last-expense-category-v1") ?? ""));
+  const [lastAccountId, setLastAccountId] = useState(() => readLastPreference("morais-financeiro-last-account-v1"));
+  const [lastCategoryId, setLastCategoryId] = useState(() => readLastPreference("morais-financeiro-last-expense-category-v1"));
+  const orderedAccounts = prioritizeRecentOptions(accounts, "morais-financeiro-last-account-v1");
+  const orderedCategories = prioritizeRecentOptions(categories, "morais-financeiro-last-expense-category-v1");
   const defaultValues = useMemo<Partial<z.input<typeof expenseSchema>>>(
     () => ({
-      accountId: accounts.some((account) => account.id === lastAccountId) ? lastAccountId : accounts[0]?.id ?? "",
+      accountId: orderedAccounts.some((account) => account.id === lastAccountId) ? lastAccountId : orderedAccounts[0]?.id ?? "",
       amount: 0,
-      categoryId: categories.some((category) => category.id === lastCategoryId) ? lastCategoryId : categories[0]?.id ?? "",
-      date: new Date().toISOString().slice(0, 10),
-      dueDate: new Date().toISOString().slice(0, 10),
+      categoryId: orderedCategories.some((category) => category.id === lastCategoryId) ? lastCategoryId : orderedCategories[0]?.id ?? "",
+      date: todayInput(),
+      dueDate: todayInput(),
       description: "",
       installments: 1,
       isRecurring: false,
@@ -60,30 +64,38 @@ export function ExpenseCreateAction({ accounts, categories, compact = false }: E
       title: "",
       type: "ONE_TIME",
     }),
-    [accounts, categories, lastAccountId, lastCategoryId],
+    [orderedAccounts, orderedCategories, lastAccountId, lastCategoryId],
   );
   const isDisabled = accounts.length === 0 || categories.length === 0;
 
   async function handleSubmit(values: z.output<typeof expenseSchema>) {
     setIsSubmitting(true);
     setMessage(null);
-    const response = await fetch("/api/expenses", {
-      body: JSON.stringify(values),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
-    setIsSubmitting(false);
+    try {
+      const response = await fetch("/api/expenses", {
+        body: JSON.stringify(values),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setMessage(body?.error ?? "Nao foi possivel salvar a despesa.");
-      return;
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setMessage(body?.error ?? "Não foi possível salvar a despesa.");
+        return;
+      }
+
+      rememberRecentPreference("morais-financeiro-last-account-v1", values.accountId);
+      rememberRecentPreference("morais-financeiro-last-expense-category-v1", values.categoryId);
+      setLastAccountId(values.accountId);
+      setLastCategoryId(values.categoryId);
+      setMessage("Despesa salva com sucesso.");
+      setIsOpen(false);
+      router.refresh();
+    } catch {
+      setMessage("Não foi possível concluir agora. Verifique a conexão e tente novamente.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    window.localStorage.setItem("morais-financeiro-last-account-v1", values.accountId);
-    window.localStorage.setItem("morais-financeiro-last-expense-category-v1", values.categoryId);
-    setIsOpen(false);
-    router.refresh();
   }
 
   return (
@@ -110,7 +122,7 @@ export function ExpenseCreateAction({ accounts, categories, compact = false }: E
       {message ? <p className="text-sm text-destructive">{message}</p> : null}
       {isOpen ? (
         <div className="rounded-lg border bg-card p-4 shadow-sm">
-          <ExpenseForm accounts={accounts} categories={categories} defaultValues={defaultValues} isSubmitting={isSubmitting} onSubmit={handleSubmit} />
+          <ExpenseForm accounts={orderedAccounts} categories={orderedCategories} defaultValues={defaultValues} isSubmitting={isSubmitting} onSubmit={handleSubmit} />
         </div>
       ) : null}
     </div>
