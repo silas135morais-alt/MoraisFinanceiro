@@ -21,6 +21,7 @@ import { personalDebtService, serializePersonalDebt } from "@/services/personal-
 
 import { BudgetBoard } from "../orcamentos/budget-board";
 import { DebtBoard } from "../dividas/debt-board";
+import { FinancingActions } from "../financiamentos/financing-actions";
 import { ExpenseCreateAction, ExpenseRowActions } from "./expense-actions";
 
 const views = [
@@ -102,7 +103,7 @@ export default async function DespesasPage({ searchParams }: DespesasPageProps) 
         <nav className="flex gap-2 overflow-x-auto" aria-label="Seções de despesas">
           {views.map((view) => <Link key={view.value} href={`/app/despesas?view=${view.value}`} className={`inline-flex h-10 shrink-0 items-center rounded-lg border px-4 text-sm font-medium ${selectedView === view.value ? "border-primary/40 bg-primary/10 text-primary" : "bg-card text-muted-foreground hover:bg-secondary"}`}>{view.label}</Link>)}
         </nav>
-        {selectedView === "entries" ? <div className="flex items-center gap-2"><Link href="/app/despesas?type=FINANCING" className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary"><Landmark className="size-4" />Financiamentos</Link><ExpenseCreateAction accounts={accountOptions} categories={categoryOptions} compact /></div> : null}
+        {selectedView === "entries" ? <div className="flex flex-wrap items-center gap-2"><Link href="/app/financiamentos" className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary"><Landmark className="size-4" />Gerenciar financiamentos</Link><FinancingActions accounts={accountOptions} categories={categoryOptions} compact /><ExpenseCreateAction accounts={accountOptions} categories={categoryOptions} compact /></div> : null}
       </div>
 
       {selectedView === "entries" ? <>
