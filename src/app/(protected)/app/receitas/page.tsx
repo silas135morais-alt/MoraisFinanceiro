@@ -5,6 +5,7 @@ import { FilterBar } from "@/components/shared/filter-bar";
 import { SummaryCard } from "@/components/shared/summary-card";
 import { requireUserId } from "@/lib/auth-guard";
 import { getMonthRange } from "@/lib/date-range";
+import { todayInput } from "@/lib/date-input";
 import { currency, shortDate } from "@/lib/format";
 import { firstParam, monthParamToDate } from "@/lib/month-param";
 import { resolveTransactionStatus, statusLabel } from "@/lib/transaction-status";
@@ -86,6 +87,7 @@ export default async function ReceitasPage({ searchParams }: ReceitasPageProps) 
       <FilterBar
         placeholder="Pesquisar receitas"
         quickFilters={[
+          { label: "Este mês", params: { month: todayInput().slice(0, 7) }, clear: ["q", "status"] },
           { label: "Ganhos da 99", params: { q: "99" }, clear: ["status"] },
           { label: "Recebidas", params: { status: "PAID" }, clear: ["q"] },
           { label: "Pendentes", params: { status: "PENDING" }, clear: ["q"] },
