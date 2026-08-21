@@ -9,6 +9,7 @@ type DebtForm = {
   creditor: string;
   title: string;
   outstandingBalance: string;
+  interestRate: string;
   dueDate: string;
   priority: string;
   notes: string;
@@ -20,7 +21,12 @@ export type DebtRow = {
   title: string;
   originalAmount: number;
   outstandingBalance: number;
+  recordedBalance: number;
+  interestBaseBalance: number;
   interestRate: number;
+  interestStartedAt: string | null;
+  accruedInterest: number;
+  daysAccrued: number;
   dueDate: string | null;
   priority: string;
   status: string;
@@ -31,6 +37,7 @@ const emptyForm: DebtForm = {
   creditor: "",
   title: "",
   outstandingBalance: "",
+  interestRate: "0",
   dueDate: "",
   priority: "URGENT",
   notes: "",
@@ -68,7 +75,7 @@ export function DebtBoard({ initialRows, compact = false }: { initialRows: DebtR
           title: form.title,
           originalAmount: balance,
           outstandingBalance: balance,
-          interestRate: 0,
+          interestRate: Number(form.interestRate) || 0,
           dueDate: form.dueDate || null,
           priority: form.priority,
           notes: form.notes || null,
@@ -98,6 +105,7 @@ export function DebtBoard({ initialRows, compact = false }: { initialRows: DebtR
           creditor: editingForm.creditor,
           title: editingForm.title,
           outstandingBalance: Number(editingForm.outstandingBalance),
+          interestRate: Number(editingForm.interestRate) || 0,
           dueDate: editingForm.dueDate || null,
           priority: editingForm.priority,
           notes: editingForm.notes || null,
@@ -107,7 +115,7 @@ export function DebtBoard({ initialRows, compact = false }: { initialRows: DebtR
       if (!response.ok) throw new Error(payload.error ?? "Não foi possível corrigir a dívida.");
       setEditingId(null);
       await reload();
-      setMessage("Dívida corrigida.");
+      setMessage("Dívida corrigida. A contagem dos juros foi reiniciada com a nova base.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível corrigir a dívida.");
     } finally {
@@ -140,7 +148,8 @@ export function DebtBoard({ initialRows, compact = false }: { initialRows: DebtR
     setEditingForm({
       creditor: item.creditor,
       title: item.title,
-      outstandingBalance: String(item.outstandingBalance),
+      outstandingBalance: String(item.recordedBalance),
+      interestRate: String(item.interestRate),
       dueDate: item.dueDate?.slice(0, 10) ?? "",
       priority: item.priority,
       notes: item.notes ?? "",
@@ -160,7 +169,7 @@ export function DebtBoard({ initialRows, compact = false }: { initialRows: DebtR
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-semibold">Dívidas pessoais</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Saldo a quitar é quanto falta pagar hoje.</p>
+            <p className="mt-1 text-sm text-muted-foreground">O saldo é atualizado na tela quando os juros mensais estiverem ativados.</p>
           </div>
           <button type="button" onClick={() => setIsOpen((current) => !current)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">
             {isOpen ? <X className="size-4" /> : <Plus className="size-4" />}
@@ -192,8 +201,18 @@ export function DebtBoard({ initialRows, compact = false }: { initialRows: DebtR
                       <p className="mt-1 text-sm text-muted-foreground">{item.title}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{item.dueDate ? `Vencimento: ${shortDate(new Date(item.dueDate))}` : "Sem vencimento definido"}</p>
                     </div>
-                    <div className="text-left sm:text-right"><p className="text-lg font-semibold">{currency(item.outstandingBalance)}</p><p className="text-xs text-muted-foreground">falta pagar</p></div>
+                    <div className="text-left sm:text-right"><p className="text-lg font-semibold">{currency(item.outstandingBalance)}</p><p className="text-xs text-muted-foreground">saldo atualizado</p></div>
                   </div>
+                  <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
+                    <InfoLine label="Valor original" value={currency(item.originalAmount)} />
+                    <InfoLine label="Saldo informado" value={currency(item.recordedBalance)} />
+                    <InfoLine label="Juros mensais" value={item.interestRate > 0 ? `${item.interestRate.toFixed(2)}% ao mês` : "Sem juros"} />
+                  </div>
+                  <p className="mt-3 rounded-lg bg-secondary/55 px-3 py-2 text-xs text-muted-foreground">
+                    {item.interestRate > 0
+                      ? `Acréscimo calculado: ${currency(item.accruedInterest)} em ${item.daysAccrued} dia(s). Atualiza ao abrir ou recarregar a tela; nada é pago automaticamente.`
+                      : "Sem juros mensais: o saldo permanece igual ao valor informado até você corrigi-lo."}
+                  </p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button type="button" disabled={saving} onClick={() => startEdit(item)} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-secondary disabled:opacity-50"><Pencil className="size-3.5" />Corrigir</button>
                     <button type="button" disabled={saving} onClick={() => action(item.id, "paid")} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-secondary disabled:opacity-50"><CheckCircle2 className="size-3.5" />Marcar quitada</button>
@@ -210,10 +229,17 @@ export function DebtBoard({ initialRows, compact = false }: { initialRows: DebtR
 }
 
 function DebtFormView({ form, saving, onChange, onSubmit, submitLabel }: { form: DebtForm; saving: boolean; onChange: (form: DebtForm) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; submitLabel: string }) {
+  const interestEnabled = Number(form.interestRate) > 0;
+
+  function toggleInterest() {
+    onChange({ ...form, interestRate: interestEnabled ? "0" : "1" });
+  }
+
   return <form onSubmit={onSubmit} className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
     <Field label="Credor" value={form.creditor} onChange={(value) => onChange({ ...form, creditor: value })} placeholder="Ex.: OdontoMarco" required />
     <Field label="O que é?" value={form.title} onChange={(value) => onChange({ ...form, title: value })} placeholder="Ex.: Tratamento odontológico" required />
     <Field label="Saldo a quitar" hint="Quanto falta pagar hoje" type="number" min="0.01" step="0.01" value={form.outstandingBalance} onChange={(value) => onChange({ ...form, outstandingBalance: value })} placeholder="850" required />
+    <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Juros mensais</span><button type="button" role="switch" aria-checked={interestEnabled} onClick={toggleInterest} className={`flex h-11 w-full items-center justify-between rounded-lg border px-3 text-left text-sm font-medium transition ${interestEnabled ? "border-primary bg-primary/10 text-primary" : "bg-background text-muted-foreground"}`}><span>{interestEnabled ? "Aplicar juros mensais" : "Sem juros mensais"}</span><span className={`rounded-full px-2 py-1 text-[11px] ${interestEnabled ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{interestEnabled ? "Ativo" : "Inativo"}</span></button>{interestEnabled ? <input aria-label="Taxa de juros mensais" className="mt-2 h-10 w-full rounded-lg border bg-background px-3 text-sm" min="0" max="100" step="0.01" type="number" value={form.interestRate} onChange={(event) => onChange({ ...form, interestRate: event.target.value })} /> : <span className="mt-1 block text-[11px] text-muted-foreground">Ative para informar a taxa, por exemplo 1,00% ao mês.</span>}{interestEnabled ? <span className="mt-1 block text-[11px] text-muted-foreground">A atualização usa juros compostos diariamente, com mês de 30 dias.</span> : null}</label>
     <Field label="Vencimento" type="date" value={form.dueDate} onChange={(value) => onChange({ ...form, dueDate: value })} />
     <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Prioridade</span><select value={form.priority} onChange={(event) => onChange({ ...form, priority: event.target.value })} className="w-full rounded-lg border bg-background px-3 py-2 text-sm"><option value="URGENT">Urgente</option><option value="HIGH">Alta</option><option value="NORMAL">Normal</option><option value="LOW">Baixa</option></select></label>
     <label className="block text-sm sm:col-span-2"><span className="mb-1 block text-xs font-medium text-muted-foreground">Observação</span><textarea value={form.notes} onChange={(event) => onChange({ ...form, notes: event.target.value })} className="min-h-10 w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Opcional" /></label>
@@ -223,6 +249,10 @@ function DebtFormView({ form, saving, onChange, onSubmit, submitLabel }: { form:
 
 function Field({ label, hint, value, onChange, placeholder, type = "text", min, step, required }: { label: string; hint?: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string; min?: string; step?: string; required?: boolean }) {
   return <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>{hint ? <span className="mb-1 block text-[11px] text-muted-foreground">{hint}</span> : null}<input required={required} type={type} min={min} step={step} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" /></label>;
+}
+
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-lg bg-secondary/45 px-3 py-2"><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-1 font-semibold">{value}</p></div>;
 }
 
 function PriorityBadge({ priority }: { priority: string }) {
