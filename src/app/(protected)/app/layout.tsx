@@ -28,9 +28,9 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   return (
     <div className="min-h-screen bg-background">
       <AppSidebar user={session.user} />
-      <div className="min-h-screen lg:pl-72">
+      <div className="min-h-screen lg:pl-[17rem]">
         <AppHeader user={session.user} />
-        <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+        <main className="mx-auto flex w-full max-w-7xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8 lg:py-9">
           {children}
         </main>
         <QuickAddModal
