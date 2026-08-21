@@ -3,18 +3,12 @@
 import type { Session } from "next-auth";
 import {
   Activity,
-  BarChart3,
-  CalendarDays,
   CreditCard,
-  Download,
-  History,
   Landmark,
   LayoutDashboard,
   LineChart,
   ListChecks,
-  PiggyBank,
   Receipt,
-  Settings,
   ShieldCheck,
   Wallet,
   TrendingDown,
@@ -33,15 +27,9 @@ const navItems = [
   { label: "Despesas", href: "/app/despesas", icon: Receipt },
   { label: "Cartões", href: "/app/cartoes", icon: CreditCard },
   { label: "Investimentos", href: "/app/investimentos", icon: LineChart },
-  { label: "Patrimônio", href: "/app/patrimonio", icon: PiggyBank },
-  { label: "Relatórios", href: "/app/relatorios", icon: BarChart3 },
-  { label: "Calendário", href: "/app/calendario", icon: CalendarDays },
   { label: "A pagar", href: "/app/contas-a-pagar", icon: ListChecks },
   { label: "A receber", href: "/app/contas-a-receber", icon: Wallet },
   { label: "Fechamento", href: "/app/fechamento", icon: ShieldCheck },
-  { label: "Exportação", href: "/app/exportacao", icon: Download },
-  { label: "Histórico", href: "/app/historico", icon: History },
-  { label: "Configurações", href: "/app/configuracoes", icon: Settings },
 ];
 
 type AppSidebarProps = {
@@ -52,9 +40,9 @@ export function AppSidebar({ user }: AppSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r bg-card/90 backdrop-blur-xl lg:flex lg:flex-col">
-      <div className="flex h-20 items-center gap-3 border-b px-6">
-        <div className="flex size-11 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[17rem] border-r bg-card/95 shadow-[8px_0_30px_hsl(var(--foreground)/0.03)] backdrop-blur-xl lg:flex lg:flex-col">
+      <div className="flex h-[4.5rem] items-center gap-3 border-b px-5">
+        <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
           <Landmark className="size-5" />
         </div>
         <div>
@@ -64,6 +52,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-5">
+        <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Navegação principal</p>
         {navItems.map((item) => {
           const Icon = item.icon;
           const active =
@@ -75,7 +64,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
               href={item.href}
               prefetch={false}
               className={cn(
-                "group flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-all hover:bg-secondary hover:text-foreground",
+                "group flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted-foreground transition-all duration-150 hover:translate-x-0.5 hover:bg-secondary hover:text-foreground",
                 active && "bg-primary/10 text-primary shadow-sm",
               )}
             >
@@ -117,10 +106,10 @@ export function MobileNav() {
             key={item.href}
             href={item.href}
             prefetch={false}
-            className={cn(
-              "flex h-10 shrink-0 items-center gap-2 rounded-lg border bg-card px-3 text-sm text-muted-foreground",
-              active && "border-primary/40 bg-primary/10 text-primary",
-            )}
+className={cn(
+                "flex h-10 shrink-0 items-center gap-2 rounded-xl border bg-card px-3 text-sm font-medium text-muted-foreground shadow-sm transition-all active:scale-[0.98]",
+                active && "border-primary/40 bg-primary/10 text-primary",
+              )}
           >
             <Icon className="size-4" />
             {item.label}

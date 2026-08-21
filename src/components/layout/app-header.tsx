@@ -15,14 +15,14 @@ export function AppHeader({ user }: AppHeaderProps) {
   const firstName = user.name?.split(" ")[0] ?? "Usuário";
 
   return (
-    <header className="border-b bg-background/88 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-20 border-b bg-background/88 shadow-[0_1px_0_hsl(var(--border)/0.35)] backdrop-blur-xl">
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
               MoraisFinanceiro
             </p>
-            <h1 className="truncate text-lg font-semibold tracking-normal sm:text-xl">
+            <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
               Olá, {firstName}
             </h1>
           </div>
@@ -35,10 +35,10 @@ export function AppHeader({ user }: AppHeaderProps) {
               <ThemeToggle />
             </div>
             <details className="group relative">
-              <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border bg-card px-2 py-1.5 transition-colors hover:bg-secondary">
+              <summary className="flex cursor-pointer list-none items-center gap-2 rounded-xl border bg-card px-2 py-1.5 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-secondary hover:shadow">
                 <UserAvatar name={user.name} image={user.image} />
               </summary>
-              <div className="absolute right-0 mt-2 w-56 rounded-lg border bg-card p-2 shadow-lg">
+              <div className="absolute right-0 mt-2 w-60 rounded-2xl border bg-card p-2 shadow-xl">
                 <div className="px-2 py-2">
                   <p className="truncate text-sm font-medium">{user.name ?? "Usuário"}</p>
                   <p className="truncate text-xs text-muted-foreground">{user.email}</p>
