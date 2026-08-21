@@ -22,7 +22,7 @@ export function ExpenseForm({ accounts = [], categories = [], defaultValues, isS
   const form = useFinanceForm<z.input<typeof expenseSchema>, z.output<typeof expenseSchema>>(expenseSchema, defaultValues);
 
   return (
-    <form className="grid gap-3" onSubmit={form.handleSubmit(onSubmit)}>
+    <form className="grid gap-3" onSubmit={form.handleSubmit(onSubmit)} aria-busy={isSubmitting}>
       <label className="grid gap-1 text-sm font-medium">
         O que precisa pagar?
         <input autoFocus className="h-10 rounded-md border bg-background px-3 text-sm font-normal" placeholder="Ex.: Internet ou parcela da moto" {...form.register("title")} />
@@ -106,6 +106,7 @@ export function ExpenseForm({ accounts = [], categories = [], defaultValues, isS
         </label>
       </details>
 
+      {isSubmitting ? <p role="status" className="text-xs text-muted-foreground">Salvando sua despesa...</p> : null}
       <Button className="mt-2 w-full sm:w-fit" disabled={isSubmitting} type="submit">
         {isSubmitting ? "Salvando..." : "Salvar despesa"}
       </Button>

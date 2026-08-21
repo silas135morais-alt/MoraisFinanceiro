@@ -22,7 +22,7 @@ export function IncomeForm({ accounts = [], categories = [], defaultValues, isSu
   const form = useFinanceForm<z.input<typeof incomeSchema>, z.output<typeof incomeSchema>>(incomeSchema, defaultValues);
 
   return (
-    <form className="grid gap-3" onSubmit={form.handleSubmit(onSubmit)}>
+    <form className="grid gap-3" onSubmit={form.handleSubmit(onSubmit)} aria-busy={isSubmitting}>
       <label className="grid gap-1 text-sm font-medium">
         Título
         <input autoFocus className="h-10 rounded-md border bg-background px-3 text-sm font-normal" placeholder="Ex.: Salário ou trabalho extra" {...form.register("title")} />
@@ -92,6 +92,7 @@ export function IncomeForm({ accounts = [], categories = [], defaultValues, isSu
         </label>
       </details>
 
+      {isSubmitting ? <p role="status" className="text-xs text-muted-foreground">Salvando sua receita...</p> : null}
       <Button className="mt-2 w-full sm:w-fit" disabled={isSubmitting} type="submit">
         {isSubmitting ? "Salvando..." : "Salvar receita"}
       </Button>
