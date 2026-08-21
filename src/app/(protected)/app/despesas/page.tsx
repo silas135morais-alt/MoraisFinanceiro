@@ -114,7 +114,15 @@ export default async function DespesasPage({ searchParams }: DespesasPageProps) 
         <div className="flex gap-2 overflow-x-auto">
           {typeTabs.map((tab) => <Link key={tab.value} className={`inline-flex h-9 shrink-0 items-center rounded-lg border px-3 text-xs font-medium ${selectedType === tab.value ? "border-primary/40 bg-primary/10 text-primary" : "bg-card text-muted-foreground hover:bg-secondary"}`} href={`/app/despesas?${new URLSearchParams([...baseParams.entries(), ...(tab.value ? [["type", tab.value]] : [])]).toString()}`}>{tab.label}</Link>)}
         </div>
-        <FilterBar placeholder="Pesquisar despesas" />
+        <FilterBar
+          placeholder="Pesquisar despesas"
+          quickFilters={[
+            { label: "Pendentes", params: { status: "PENDING" }, clear: ["q", "type"] },
+            { label: "Atrasadas", params: { status: "OVERDUE" }, clear: ["q", "type"] },
+            { label: "Financiamentos", params: { type: "FINANCING" }, clear: ["q", "status"] },
+            { label: "Limpar filtros", clear: ["q", "status", "type"] },
+          ]}
+        />
         <DataTable columns={["Descrição", "Categoria", "Tipo", "Vencimento", "Valor", "Status", "Corrigir"]} rows={data.items.map((expense) => [
           expense.title,
           expense.category.name,

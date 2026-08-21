@@ -43,11 +43,13 @@ export function ExpenseCreateAction({ accounts, categories, compact = false }: E
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [lastAccountId] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem("morais-financeiro-last-account-v1") ?? ""));
+  const [lastCategoryId] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem("morais-financeiro-last-expense-category-v1") ?? ""));
   const defaultValues = useMemo<Partial<z.input<typeof expenseSchema>>>(
     () => ({
-      accountId: accounts[0]?.id ?? "",
+      accountId: accounts.some((account) => account.id === lastAccountId) ? lastAccountId : accounts[0]?.id ?? "",
       amount: 0,
-      categoryId: categories[0]?.id ?? "",
+      categoryId: categories.some((category) => category.id === lastCategoryId) ? lastCategoryId : categories[0]?.id ?? "",
       date: new Date().toISOString().slice(0, 10),
       dueDate: new Date().toISOString().slice(0, 10),
       description: "",
@@ -58,7 +60,7 @@ export function ExpenseCreateAction({ accounts, categories, compact = false }: E
       title: "",
       type: "ONE_TIME",
     }),
-    [accounts, categories],
+    [accounts, categories, lastAccountId, lastCategoryId],
   );
   const isDisabled = accounts.length === 0 || categories.length === 0;
 
@@ -78,6 +80,8 @@ export function ExpenseCreateAction({ accounts, categories, compact = false }: E
       return;
     }
 
+    window.localStorage.setItem("morais-financeiro-last-account-v1", values.accountId);
+    window.localStorage.setItem("morais-financeiro-last-expense-category-v1", values.categoryId);
     setIsOpen(false);
     router.refresh();
   }
