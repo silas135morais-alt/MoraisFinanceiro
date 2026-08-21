@@ -1,6 +1,6 @@
 "use client";
 
-import { CarFront, CreditCard, Plus, Receipt, Wallet, X } from "lucide-react";
+import { CarFront, CreditCard, Plus, Receipt, Star, Wallet, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
@@ -10,7 +10,8 @@ import { ExpenseForm } from "@/components/forms/expense-form";
 import { IncomeForm } from "@/components/forms/income-form";
 import { DriverDailyEarningPanel } from "@/app/(protected)/app/diagnostico/driver-daily-earning-panel";
 import { todayInput } from "@/lib/date-input";
-import { prioritizeRecentOptions, readLastPreference, rememberRecentPreference } from "@/lib/recent-preferences";
+import { isFavoritePreference, prioritizeRecentOptions, readLastPreference, rememberRecentPreference, toggleFavoritePreference } from "@/lib/recent-preferences";
+import { startClientActionTimer } from "@/lib/performance-metrics";
 import { expenseSchema, incomeSchema } from "@/validators/finance";
 
 type Option = { id: string; name: string };
@@ -45,6 +46,7 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [continueAdding, setContinueAdding] = useState(false);
   const [formKey, setFormKey] = useState(0);
+  const [, setPreferenceVersion] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const submittingRef = useRef(false);
@@ -71,6 +73,19 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
     }
   }
 
+  function choosePreference(kind: "account" | "incomeCategory" | "expenseCategory" | "card", id: string) {
+    if (kind === "account") setLastAccountId(id);
+    if (kind === "incomeCategory") setLastIncomeCategoryId(id);
+    if (kind === "expenseCategory") setLastExpenseCategoryId(id);
+    if (kind === "card") setLastCardId(id);
+    setFormKey((current) => current + 1);
+  }
+
+  function togglePreference(key: string, id: string) {
+    toggleFavoritePreference(key, id);
+    setPreferenceVersion((current) => current + 1);
+  }
+
   function chooseMode(nextMode: QuickMode) {
     setMode(nextMode);
     try {
@@ -94,6 +109,7 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
   async function submitJson(endpoint: string, values: unknown, selection: Selection = {}) {
     if (submittingRef.current) return;
     submittingRef.current = true;
+    const timer = startClientActionTimer("quick-launch");
     setIsSubmitting(true);
     setMessage(null);
     setError(null);
@@ -102,6 +118,7 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
         setError(body?.error ?? "Não foi possível salvar o lançamento.");
+        timer.finish("error");
         return;
       }
       rememberSelection(selection);
@@ -117,8 +134,10 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
         setOpen(false);
       }
       router.refresh();
+      timer.finish("success");
     } catch {
       setError("Não foi possível concluir agora. Verifique a conexão e tente novamente.");
+      timer.finish("error");
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
@@ -163,7 +182,7 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
 
   return (
     <>
-      <button type="button" onClick={() => { setMessage(null); setOpen(true); }} className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-xl transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+      <button type="button" onClick={() => { setMessage(null); setOpen(true); }} className="fixed bottom-4 right-4 z-40 inline-flex touch-manipulation items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-xl transition-transform active:scale-[0.97] hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 sm:bottom-5 sm:right-5 sm:px-5">
         <Plus className="size-4" /> Novo lançamento
       </button>
 
@@ -187,6 +206,19 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
               Salvar e lançar outro
             </label>
 
+            <div className="mt-4 rounded-lg border bg-secondary/25 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Favoritos e recentes</p>
+                <span className="text-[11px] text-muted-foreground">Use para selecionar; ★ fixa</span>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <PreferenceGroup label="Contas" options={orderedAccounts.slice(0, 5)} preferenceKey={LAST_ACCOUNT_KEY} onSelect={(id) => choosePreference("account", id)} onToggle={(id) => togglePreference(LAST_ACCOUNT_KEY, id)} />
+                {mode === "income" ? <PreferenceGroup label="Categorias" options={orderedIncomeCategories.slice(0, 5)} preferenceKey={LAST_INCOME_CATEGORY_KEY} onSelect={(id) => choosePreference("incomeCategory", id)} onToggle={(id) => togglePreference(LAST_INCOME_CATEGORY_KEY, id)} /> : null}
+                {mode === "expense" ? <PreferenceGroup label="Categorias" options={orderedExpenseCategories.slice(0, 5)} preferenceKey={LAST_EXPENSE_CATEGORY_KEY} onSelect={(id) => choosePreference("expenseCategory", id)} onToggle={(id) => togglePreference(LAST_EXPENSE_CATEGORY_KEY, id)} /> : null}
+                {mode === "card" ? <PreferenceGroup label="Cartões" options={orderedCards.slice(0, 5)} preferenceKey={LAST_CARD_KEY} onSelect={(id) => choosePreference("card", id)} onToggle={(id) => togglePreference(LAST_CARD_KEY, id)} /> : null}
+              </div>
+            </div>
+
             {message ? <p role="status" className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200">{message}</p> : null}
             {error ? <p role="alert" className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
             <div className="mt-5">
@@ -202,8 +234,25 @@ export function QuickAddModal({ accounts, incomeCategories, expenseCategories, c
   );
 }
 
+function PreferenceGroup({ label, options, preferenceKey, onSelect, onToggle }: { label: string; options: Option[]; preferenceKey: string; onSelect: (id: string) => void; onToggle: (id: string) => void }) {
+  if (!options.length) return null;
+
+  return <div className="min-w-0">
+    <p className="text-xs font-medium text-muted-foreground">{label}</p>
+    <div className="mt-1 flex flex-wrap gap-1.5">
+      {options.map((option) => {
+        const favorite = isFavoritePreference(preferenceKey, option.id);
+        return <div key={option.id} className="inline-flex max-w-full items-center rounded-full border bg-card text-xs">
+          <button type="button" onClick={() => onSelect(option.id)} className="max-w-[9rem] truncate px-2.5 py-1.5 font-medium hover:bg-secondary" title={`Usar ${option.name}`}>{option.name}</button>
+          <button type="button" onClick={() => onToggle(option.id)} className="rounded-r-full px-1.5 py-1.5 text-amber-600 hover:bg-secondary" aria-label={favorite ? `Remover ${option.name} dos favoritos` : `Adicionar ${option.name} aos favoritos`} title={favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}><Star className={`size-3.5 ${favorite ? "fill-current" : ""}`} /></button>
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
 function ShortcutButton({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: ReactNode; children: ReactNode }) {
-  return <button type="button" onClick={onClick} className={active ? "flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-sm" : "flex items-center justify-center gap-2 rounded-md border bg-card px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"}>{icon}{children}</button>;
+  return <button type="button" onClick={onClick} className={active ? "flex touch-manipulation items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-sm active:scale-[0.97]" : "flex touch-manipulation items-center justify-center gap-2 rounded-md border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-transform active:scale-[0.97] hover:bg-secondary hover:text-foreground"}>{icon}{children}</button>;
 }
 
 function CardPurchaseForm({ cards, categories, today, defaultCardId, defaultCategoryId, isSubmitting, onSubmit }: { cards: Option[]; categories: Option[]; today: string; defaultCardId: string; defaultCategoryId: string; isSubmitting: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
