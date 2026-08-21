@@ -27,6 +27,10 @@ type Debt = {
   title?: string;
   source: "FINANCING" | "PERSONAL_DEBT";
   outstandingBalance: number;
+  recordedBalance?: number;
+  interestRate?: number;
+  accruedInterest?: number;
+  daysAccrued?: number;
   installmentAmount?: number;
   nextDueDate?: string;
   dueDate?: string | null;
@@ -44,6 +48,36 @@ type Diagnostic = {
   debts: Debt[];
   driverProfile: Settings & { saved: boolean };
 };
+
+type PayoffSimulation = {
+  monthsToPay: number | null;
+  totalInterest: number;
+  firstMonthInterest: number;
+};
+
+function simulatePayoff(balance: number, monthlyPayment: number, monthlyRate: number): PayoffSimulation {
+  if (balance <= 0 || monthlyPayment <= 0) return { monthsToPay: null, totalInterest: 0, firstMonthInterest: 0 };
+  let remaining = balance;
+  let totalInterest = 0;
+  let months = 0;
+  const firstMonthInterest = balance * (Math.max(0, monthlyRate) / 100);
+
+  while (remaining > 0 && months < 600) {
+    const interest = remaining * (Math.max(0, monthlyRate) / 100);
+    totalInterest += interest;
+    remaining = remaining + interest - monthlyPayment;
+    months += 1;
+    if (remaining >= balance && monthlyPayment <= interest) return { monthsToPay: null, totalInterest, firstMonthInterest };
+  }
+
+  return { monthsToPay: remaining <= 0 ? months : null, totalInterest, firstMonthInterest };
+}
+
+function addMonths(date: Date, months: number) {
+  const result = new Date(date);
+  result.setMonth(result.getMonth() + months);
+  return result;
+}
 
 export function DiagnosticPanel() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
@@ -84,9 +118,10 @@ export function DiagnosticPanel() {
     const urgentDebt = diagnostic.debts[0];
     const regularPayment = urgentDebt?.source === "FINANCING" ? urgentDebt.installmentAmount ?? 0 : 0;
     const monthlyPayment = regularPayment + extraDebtPayment;
-    const monthsToPay = urgentDebt && monthlyPayment > 0 ? Math.ceil(urgentDebt.outstandingBalance / monthlyPayment) : null;
-    const targetDate = monthsToPay ? new Date(Date.now() + monthsToPay * 30 * 24 * 60 * 60 * 1000) : null;
-    return { grossMonthly, operatingReserve, emergencyReserve, plannedNetMonthly, extraDebtPayment, urgentDebt, monthlyPayment, monthsToPay, targetDate };
+    const monthlyRate = urgentDebt?.interestRate ?? 0;
+    const payoff = urgentDebt ? simulatePayoff(urgentDebt.outstandingBalance, monthlyPayment, monthlyRate) : { monthsToPay: null, totalInterest: 0, firstMonthInterest: 0 };
+    const targetDate = payoff.monthsToPay ? addMonths(new Date(), payoff.monthsToPay) : null;
+    return { grossMonthly, operatingReserve, emergencyReserve, plannedNetMonthly, extraDebtPayment, urgentDebt, monthlyPayment, monthlyRate, payoff, targetDate };
   }, [diagnostic, settings]);
 
   function updateSetting(field: keyof Settings, value: string) {
@@ -187,11 +222,22 @@ export function DiagnosticPanel() {
             </div>
             <div className="text-left sm:text-right">
               <p className="text-lg font-semibold">{currency(upcomingDebt.outstandingBalance)}</p>
-              <p className="text-xs text-muted-foreground">falta pagar</p>
+              <p className="text-xs text-muted-foreground">saldo atualizado</p>
+              {upcomingDebt.source === "PERSONAL_DEBT" && (upcomingDebt.interestRate ?? 0) > 0 ? <p className="mt-1 text-xs text-amber-700 dark:text-amber-200">+ {currency(upcomingDebt.accruedInterest ?? 0)} de juros</p> : null}
             </div>
           </div>
         ) : <p className="mt-4 rounded-lg bg-secondary/55 px-4 py-3 text-sm text-muted-foreground">Nenhuma dívida ou financiamento ativo.</p>}
-        {upcomingDebt ? <p className="mt-3 text-sm text-muted-foreground">Simulação: {plan.monthsToPay ? `aproximadamente ${plan.monthsToPay} mês(es), até ${plan.targetDate?.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}` : "aumente a renda livre ou reduza compromissos para calcular um prazo"}. Extra mensal estimado: {currency(plan.extraDebtPayment)}.</p> : null}
+        {upcomingDebt ? (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-muted-foreground">A simulação considera o saldo atualizado, juros mensais de {plan.monthlyRate.toFixed(2)}% e um pagamento mensal estimado de {currency(plan.monthlyPayment)}. O site não paga nada sozinho.</p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <MiniStat label="Extra mensal para dívida" value={currency(plan.extraDebtPayment)} />
+              <MiniStat label="Juros do próximo mês" value={currency(plan.payoff.firstMonthInterest)} />
+              <MiniStat label="Juros estimados no plano" value={plan.payoff.monthsToPay ? currency(plan.payoff.totalInterest) : "Não sustentável"} />
+            </div>
+            <p className="text-sm font-medium text-foreground">{plan.payoff.monthsToPay ? `Prazo estimado: ${plan.payoff.monthsToPay} mês(es), até ${plan.targetDate?.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}.` : "Com esse pagamento, a dívida não reduz porque os juros consomem o valor mensal. Aumente o extra ou reduza a taxa."}</p>
+          </div>
+        ) : null}
       </section>
 
       <details className="group rounded-lg border bg-card shadow-sm">
