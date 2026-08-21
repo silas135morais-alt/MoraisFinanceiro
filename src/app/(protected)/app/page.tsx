@@ -120,6 +120,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               title={entry.title}
               meta={`${entry.category?.name ?? "Sem categoria"} - ${shortDate(entry.date)}`}
               value={`${entry.type === "INCOME" ? "+" : "-"} ${currency(Number(entry.amount))}`}
+              href={entry.type === "INCOME" ? (entry.title.includes("99") ? "/app/receitas?q=99" : "/app/receitas") : entry.type === "CREDIT_CARD_PURCHASE" ? "/app/cartoes" : "/app/despesas"}
             />
           )) : (
             <EmptyText>Nenhum lancamento encontrado no mes.</EmptyText>
@@ -274,14 +275,17 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function ListItem({ title, meta, value }: { title: string; meta: string; value: string }) {
+function ListItem({ title, meta, value, href }: { title: string; meta: string; value: string; href?: string }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-lg bg-secondary/55 px-3 py-3">
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{meta}</p>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{title}</p>
+        <p className="mt-1 truncate text-xs text-muted-foreground">{meta}</p>
       </div>
-      <p className="text-sm font-semibold">{value}</p>
+      <div className="shrink-0 text-right">
+        <p className="text-sm font-semibold">{value}</p>
+        {href ? <Link href={href} className="text-[11px] font-semibold text-primary hover:underline">Abrir</Link> : null}
+      </div>
     </div>
   );
 }
