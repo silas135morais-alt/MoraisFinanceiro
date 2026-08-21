@@ -109,8 +109,27 @@ test("quick launch keeps frequent actions close", () => {
   assert.match(quickAdd, /Salvar e lançar outro/);
   assert.match(quickAdd, /last-account-v1/);
   assert.match(filterBar, /quickFilters/);
-  assert.match(incomeForm, /Mais opções/);
-  assert.match(expenseForm, /Mais opções/);
+  assert.match(incomeForm, /Recorrência/);
+  assert.match(incomeForm, /Já recebida/);
+  assert.match(expenseForm, /Recorrência/);
+  assert.match(expenseForm, /Já paga/);
+});
+
+test("daily navigation and multi-entry controls stay intentionally simple", () => {
+  const sidebar = readFileSync(new URL("../src/components/layout/app-sidebar.tsx", import.meta.url), "utf8");
+  const quickAdd = readFileSync(new URL("../src/components/shared/quick-add-modal.tsx", import.meta.url), "utf8");
+  const button = readFileSync(new URL("../src/components/ui/button.tsx", import.meta.url), "utf8");
+
+  assert.match(sidebar, /Navegação principal/);
+  assert.doesNotMatch(sidebar, /label: "Patrimônio"/);
+  assert.doesNotMatch(sidebar, /label: "Relatórios"/);
+  assert.doesNotMatch(sidebar, /label: "Calendário"/);
+  assert.doesNotMatch(sidebar, /label: "Exportação"/);
+  assert.doesNotMatch(sidebar, /label: "Histórico"/);
+  assert.doesNotMatch(sidebar, /label: "Configurações"/);
+  assert.match(quickAdd, /Continuar lançando/);
+  assert.match(quickAdd, /role="switch"/);
+  assert.match(button, /active:scale-\[0\.98\]/);
 });
 
 test("operational routes exist for core production flows", () => {
