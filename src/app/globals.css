@@ -21,7 +21,7 @@
     --border: 216 18% 89%;
     --input: 220 13% 91%;
     --ring: 154 60% 32%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 
   .dark {
@@ -50,6 +50,13 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    background-image: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted) / 0.18));
+  }
+
+  input,
+  select,
+  textarea {
+    font-family: inherit;
   }
 
   ::selection {
@@ -65,7 +72,22 @@
   }
 
   .animate-in-soft {
-    animation: fade-up 420ms ease-out both;
+    animation: fade-up 260ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+
+  .interactive-card {
+    @apply rounded-2xl border bg-card shadow-sm transition-shadow duration-200 hover:shadow-md;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 
   @keyframes fade-up {
