@@ -28,7 +28,16 @@ export const expenseService = {
     const { skip, take, page, pageSize } = getPagination(params);
     const where: Prisma.ExpenseWhereInput = {
       userId,
-      ...(params.q ? { title: { contains: params.q, mode: "insensitive" as const } } : {}),
+      ...(params.q
+        ? {
+            OR: [
+              { title: { contains: params.q, mode: "insensitive" } },
+              { description: { contains: params.q, mode: "insensitive" } },
+              { category: { name: { contains: params.q, mode: "insensitive" } } },
+              { account: { name: { contains: params.q, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
       ...(params.status ? { status: params.status as TransactionStatus } : {}),
       ...(params.type ? { type: params.type as ExpenseType } : {}),
       ...(params.categoryId ? { categoryId: params.categoryId } : {}),

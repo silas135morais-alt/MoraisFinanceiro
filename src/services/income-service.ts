@@ -27,7 +27,16 @@ export const incomeService = {
     const { skip, take, page, pageSize } = getPagination(params);
     const incomeWhere: Prisma.IncomeWhereInput = {
       userId,
-      ...(params.q ? { title: { contains: params.q, mode: "insensitive" } } : {}),
+      ...(params.q
+        ? {
+            OR: [
+              { title: { contains: params.q, mode: "insensitive" } },
+              { description: { contains: params.q, mode: "insensitive" } },
+              { category: { name: { contains: params.q, mode: "insensitive" } } },
+              { account: { name: { contains: params.q, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
       ...(params.status ? { status: params.status as TransactionStatus } : {}),
       ...(params.categoryId ? { categoryId: params.categoryId } : {}),
       ...(params.accountId ? { accountId: params.accountId } : {}),
