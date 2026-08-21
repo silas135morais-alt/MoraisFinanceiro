@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown } from "lucide-react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFinanceForm } from "@/hooks/use-finance-form";
 import { expenseSchema } from "@/validators/finance";
@@ -85,7 +85,7 @@ export function ExpenseForm({ accounts = [], categories = [], defaultValues, isS
         </label>
       </div>
 
-      <div className="grid gap-3 rounded-xl border bg-secondary/25 p-3 sm:grid-cols-2">
+      <div className="grid gap-3 rounded-xl border bg-secondary/25 p-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="grid gap-1.5 text-sm font-medium">
           Recorrência
           <select className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" value={isRecurring ? recurrenceFrequency : "NONE"} onChange={(event) => setRecurrence(event.target.value)}>
@@ -99,41 +99,31 @@ export function ExpenseForm({ accounts = [], categories = [], defaultValues, isS
 
         <label className="grid gap-1.5 text-sm font-medium">
           Situação
-          <select className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" {...form.register("status")}>
+          <select className="h-11 rounded-xl border bg-background px-3 py-2 text-sm font-normal shadow-sm" {...form.register("status")}>
             <option value="PENDING">Ainda não paga</option>
             <option value="PAID">Já paga</option>
             <option value="OVERDUE">Atrasada</option>
             <option value="CANCELED">Cancelada</option>
           </select>
         </label>
+
+        <label className="grid gap-1.5 text-sm font-medium">
+          Tipo de despesa
+          <select className="h-11 rounded-xl border bg-background px-3 py-2 text-sm font-normal shadow-sm" {...form.register("type")}>
+            <option value="ONE_TIME">Avulsa</option>
+            <option value="FIXED">Fixa</option>
+            <option value="SUBSCRIPTION">Assinatura</option>
+            <option value="FINANCING">Financiamento</option>
+            {type === "INSTALLMENT" ? <option value="INSTALLMENT">Parcelada (registro antigo)</option> : null}
+          </select>
+          <span className="text-[11px] font-normal text-muted-foreground">Para parcelar uma compra, use o fluxo Compra no cartão.</span>
+        </label>
       </div>
 
-      <details className="group rounded-xl border bg-background/60 px-3 py-2.5">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-muted-foreground">
-          Mais detalhes
-          <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
-        </summary>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1.5 text-sm font-medium">
-            Tipo de despesa
-            <select className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" {...form.register("type")}>
-              <option value="ONE_TIME">Avulsa</option>
-              <option value="FIXED">Fixa</option>
-              <option value="INSTALLMENT">Parcelada</option>
-              <option value="SUBSCRIPTION">Assinatura</option>
-              <option value="FINANCING">Financiamento</option>
-            </select>
-          </label>
-          <label className="grid gap-1.5 text-sm font-medium">
-            Parcelas
-            <input className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" min={1} type="number" disabled={type !== "INSTALLMENT" && type !== "FINANCING"} {...form.register("installments")} />
-          </label>
-        </div>
-        <label className="mt-3 grid gap-1.5 text-sm font-medium">
-          Observação
-          <textarea className="min-h-20 rounded-xl border bg-background px-3 py-2 text-sm font-normal shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15" placeholder="Alguma informação útil sobre esta despesa" {...form.register("description")} />
-        </label>
-      </details>
+      <label className="grid gap-1.5 text-sm font-medium">
+        Observação
+        <textarea className="min-h-20 rounded-xl border bg-background px-3 py-2 text-sm font-normal shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15" placeholder="Alguma informação útil sobre esta despesa" {...form.register("description")} />
+      </label>
 
       {isSubmitting ? <p role="status" className="text-xs text-muted-foreground">Salvando sua despesa...</p> : null}
       <Button className="mt-1 w-full sm:w-fit" disabled={isSubmitting} type="submit">
