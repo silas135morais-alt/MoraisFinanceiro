@@ -83,7 +83,15 @@ export default async function ReceitasPage({ searchParams }: ReceitasPageProps) 
         <SummaryCard title="A receber" value={currency(receivableTotal)} helper="Pendentes e vencidas" icon={CalendarCheck} tone="blue" />
         <SummaryCard title="Total do mes" value={currency(monthlyTotal)} helper="Recebidas + a receber" icon={ArrowUpRight} tone="violet" />
       </section>
-      <FilterBar placeholder="Pesquisar receitas" />
+      <FilterBar
+        placeholder="Pesquisar receitas"
+        quickFilters={[
+          { label: "Ganhos da 99", params: { q: "99" }, clear: ["status"] },
+          { label: "Recebidas", params: { status: "PAID" }, clear: ["q"] },
+          { label: "Pendentes", params: { status: "PENDING" }, clear: ["q"] },
+          { label: "Limpar filtros", clear: ["q", "status"] },
+        ]}
+      />
       <DataTable columns={["Descricao", "Categoria", "Data", "Valor", "Status", "Acoes"]} rows={rows} />
     </div>
   );

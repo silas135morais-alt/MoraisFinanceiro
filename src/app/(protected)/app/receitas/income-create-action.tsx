@@ -26,12 +26,14 @@ export function IncomeCreateAction({ accounts, categories, compact = false }: In
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [lastAccountId] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem("morais-financeiro-last-account-v1") ?? ""));
+  const [lastCategoryId] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem("morais-financeiro-last-income-category-v1") ?? ""));
 
   const defaultValues = useMemo<Partial<z.input<typeof incomeSchema>>>(
     () => ({
-      accountId: accounts[0]?.id ?? "",
+      accountId: accounts.some((account) => account.id === lastAccountId) ? lastAccountId : accounts[0]?.id ?? "",
       amount: 0,
-      categoryId: categories[0]?.id ?? "",
+      categoryId: categories.some((category) => category.id === lastCategoryId) ? lastCategoryId : categories[0]?.id ?? "",
       date: new Date().toISOString().slice(0, 10),
       description: "",
       isRecurring: false,
@@ -39,7 +41,7 @@ export function IncomeCreateAction({ accounts, categories, compact = false }: In
       status: "PENDING",
       title: "",
     }),
-    [accounts, categories],
+    [accounts, categories, lastAccountId, lastCategoryId],
   );
 
   async function handleSubmit(values: z.output<typeof incomeSchema>) {
@@ -59,6 +61,8 @@ export function IncomeCreateAction({ accounts, categories, compact = false }: In
       return;
     }
 
+    window.localStorage.setItem("morais-financeiro-last-account-v1", values.accountId);
+    window.localStorage.setItem("morais-financeiro-last-income-category-v1", values.categoryId);
     setMessage("Receita salva com sucesso.");
     setIsSubmitting(false);
     setIsOpen(false);
