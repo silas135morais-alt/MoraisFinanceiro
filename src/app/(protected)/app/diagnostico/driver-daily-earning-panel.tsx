@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
@@ -26,7 +28,10 @@ type Overview = {
   entries: Entry[];
 };
 
-type Props = { onSaved?: () => Promise<void> | void };
+type Props = {
+  onSaved?: () => Promise<void> | void;
+  compact?: boolean;
+};
 
 function todayInput() {
   const date = new Date();
@@ -38,7 +43,10 @@ function feedback(difference: number) {
   return `Abaixo da meta em ${currency(Math.abs(difference))}`;
 }
 
-export function DriverDailyEarningPanel({ onSaved }: Props) {
+export function DriverDailyEarningPanel({ onSaved, compact = false }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const edit99Id = searchParams.get("edit99");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [date, setDate] = useState(() => todayInput());
@@ -54,17 +62,19 @@ export function DriverDailyEarningPanel({ onSaved }: Props) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [earningResponse, accountResponse] = await Promise.all([
-        fetch("/api/motorista-99/realizado", { cache: "no-store" }),
-        fetch("/api/accounts", { cache: "no-store" }),
-      ]);
+      const earningResponse = await fetch("/api/motorista-99/realizado", { cache: "no-store" });
       const earningPayload = await earningResponse.json();
-      const accountPayload = await accountResponse.json();
       if (!earningResponse.ok) throw new Error(earningPayload.error ?? "Não foi possível carregar os realizados.");
-      if (!accountResponse.ok) throw new Error(accountPayload.error ?? "Não foi possível carregar as contas.");
-      const nextOverview = earningPayload.data ?? earningPayload;
-      const nextAccounts = (accountPayload.data ?? accountPayload) as Account[];
+
+      const nextOverview = (earningPayload.data ?? earningPayload) as Overview;
       setOverview(nextOverview);
+
+      if (compact) return;
+
+      const accountResponse = await fetch("/api/accounts", { cache: "no-store" });
+      const accountPayload = await accountResponse.json();
+      if (!accountResponse.ok) throw new Error(accountPayload.error ?? "Não foi possível carregar as contas.");
+      const nextAccounts = (accountPayload.data ?? accountPayload) as Account[];
       setAccounts(nextAccounts.map((account) => ({ id: account.id, name: account.name })));
       setAccountId((current) => current || nextAccounts[0]?.id || "");
     } catch (cause) {
@@ -72,7 +82,7 @@ export function DriverDailyEarningPanel({ onSaved }: Props) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [compact]);
 
   useEffect(() => {
     void load();
@@ -93,7 +103,7 @@ export function DriverDailyEarningPanel({ onSaved }: Props) {
     setError("");
   }
 
-  function edit(entry: Entry) {
+  const edit = useCallback((entry: Entry) => {
     setEditingId(entry.id);
     setDate(entry.date.slice(0, 10));
     setGrossAmount(String(entry.grossAmount));
@@ -101,6 +111,19 @@ export function DriverDailyEarningPanel({ onSaved }: Props) {
     setNotes(entry.notes ?? "");
     setMessage("");
     setError("");
+  }, []);
+
+  useEffect(() => {
+    if (compact || !edit99Id || !overview) return;
+    const entry = overview.entries.find((item) => item.id === edit99Id);
+    if (!entry) return;
+    edit(entry);
+    window.setTimeout(() => document.getElementById("ganho-99")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  }, [compact, edit, edit99Id, overview]);
+
+  async function refreshAfterSave() {
+    await onSaved?.();
+    router.refresh();
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -118,8 +141,8 @@ export function DriverDailyEarningPanel({ onSaved }: Props) {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "Não foi possível salvar o realizado.");
       await load();
-      await onSaved?.();
-      setMessage(wasEditing ? "Registro corrigido. A receita e o saldo foram atualizados." : "Receita registrada. Ela já entrou em Receitas e no saldo.");
+      await refreshAfterSave();
+      setMessage(wasEditing ? "Registro corrigido. A receita e o saldo foram atualizados." : "Receita registrada. Ela já entrou no histórico e no saldo.");
       resetForm(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível salvar o realizado.");
@@ -136,7 +159,7 @@ export function DriverDailyEarningPanel({ onSaved }: Props) {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "Não foi possível apagar o registro.");
       await load();
-      await onSaved?.();
+      await refreshAfterSave();
       setMessage("Registro e receita correspondentes foram apagados.");
       if (editingId === id) resetForm();
     } catch (cause) {
@@ -144,14 +167,46 @@ export function DriverDailyEarningPanel({ onSaved }: Props) {
     }
   }
 
+  if (loading && !overview) {
+    return <section className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">Carregando realizado da 99...</section>;
+  }
+
+  if (!overview) {
+    return <section className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">O realizado da 99 não está disponível agora.</section>;
+  }
+
+  if (compact) {
+    const lastEntry = overview.entries[0];
+    return (
+      <section className="rounded-lg border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-semibold">Realizado da 99</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Os ganhos diários são registrados em Receitas para manter todo o histórico em um só lugar.</p>
+          </div>
+          <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold">Meta diária: {currency(overview.dailyTarget)}</span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <MiniStat label="Dias lançados no mês" value={String(overview.daysWorked)} />
+          <MiniStat label="Total realizado" value={currency(overview.grossTotal)} />
+          <MiniStat label="Diferença para as metas" value={currency(overview.difference)} />
+        </div>
+        <div className="mt-4 flex flex-col gap-3 rounded-lg bg-secondary/45 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">{lastEntry ? `Último registro: ${shortDate(new Date(lastEntry.date))}, ${currency(lastEntry.grossAmount)}.` : "Nenhum ganho da 99 foi registrado neste mês."}</p>
+          <Link href="/app/receitas#ganho-99" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90">Registrar em Receitas</Link>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm">
+    <section id="ganho-99" className="scroll-mt-6 rounded-lg border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="font-semibold">Realizado da 99</h3>
+          <h3 className="font-semibold">Ganho da 99</h3>
           <p className="mt-1 text-sm text-muted-foreground">Registre quanto realmente fez no dia. O valor entra como receita recebida assim que for salvo.</p>
         </div>
-        <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold">Meta diária: {currency(overview?.dailyTarget ?? 0)}</span>
+        <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold">Meta diária: {currency(overview.dailyTarget)}</span>
       </div>
 
       <form onSubmit={save} className="mt-4 grid gap-3 rounded-lg bg-secondary/45 p-4 md:grid-cols-4">
@@ -160,7 +215,7 @@ export function DriverDailyEarningPanel({ onSaved }: Props) {
         <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Recebi em</span><select required value={accountId} onChange={(event) => setAccountId(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm"><option value="">Selecione a conta</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
         <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Observação (opcional)</span><input value={notes} onChange={(event) => setNotes(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Ex.: chuva, dia curto" /></label>
         <div className="flex flex-wrap items-center gap-2 md:col-span-4">
-          <button type="submit" disabled={saving || loading || accounts.length === 0} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saving ? "Salvando..." : editingId ? "Salvar correção" : "Registrar realizado"}</button>
+          <button type="submit" disabled={saving || loading || accounts.length === 0} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saving ? "Salvando..." : editingId ? "Salvar correção" : "Registrar ganho"}</button>
           {editingId ? <button type="button" onClick={() => resetForm()} className="rounded-lg border px-4 py-2 text-sm font-semibold">Cancelar</button> : null}
           {previewDifference !== null ? <span className={`text-xs font-medium ${previewDifference >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>{feedback(previewDifference)}</span> : null}
         </div>
@@ -170,12 +225,12 @@ export function DriverDailyEarningPanel({ onSaved }: Props) {
       {error ? <p className="mt-3 text-xs text-destructive">{error}</p> : null}
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <MiniStat label="Dias lançados no mês" value={String(overview?.daysWorked ?? 0)} />
-        <MiniStat label="Total realizado" value={currency(overview?.grossTotal ?? 0)} />
-        <MiniStat label="Diferença para as metas" value={currency(overview?.difference ?? 0)} />
+        <MiniStat label="Dias lançados no mês" value={String(overview.daysWorked)} />
+        <MiniStat label="Total realizado" value={currency(overview.grossTotal)} />
+        <MiniStat label="Diferença para as metas" value={currency(overview.difference)} />
       </div>
 
-      {loading ? <p className="mt-5 text-sm text-muted-foreground">Carregando realizados...</p> : overview?.entries.length ? <div className="mt-5 space-y-2">{overview.entries.slice(0, 10).map((entry) => <div key={entry.id} className="flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{shortDate(new Date(entry.date))} <span className="font-normal text-muted-foreground">· {entry.accountName}</span></p><p className={`mt-1 text-xs ${entry.difference >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>{feedback(entry.difference)}</p>{entry.notes ? <p className="mt-1 text-xs text-muted-foreground">{entry.notes}</p> : null}</div><div className="flex items-center gap-4 sm:text-right"><div><p className="font-semibold">{currency(entry.grossAmount)}</p><p className="text-xs text-muted-foreground">meta {currency(entry.targetAmount)}</p></div><button type="button" onClick={() => edit(entry)} className="text-xs font-semibold text-primary hover:underline">Corrigir</button><button type="button" onClick={() => void remove(entry.id)} className="text-xs font-semibold text-muted-foreground hover:text-destructive">Apagar</button></div></div>)}</div> : <p className="mt-5 rounded-lg bg-secondary/45 px-4 py-3 text-sm text-muted-foreground">Nenhum dia lançado neste mês.</p>}
+      {overview.entries.length ? <div className="mt-5 space-y-2">{overview.entries.slice(0, 10).map((entry) => <div key={entry.id} className="flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{shortDate(new Date(entry.date))} <span className="font-normal text-muted-foreground">· {entry.accountName}</span></p><p className={`mt-1 text-xs ${entry.difference >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>{feedback(entry.difference)}</p>{entry.notes ? <p className="mt-1 text-xs text-muted-foreground">{entry.notes}</p> : null}</div><div className="flex items-center gap-4 sm:text-right"><div><p className="font-semibold">{currency(entry.grossAmount)}</p><p className="text-xs text-muted-foreground">meta {currency(entry.targetAmount)}</p></div><button type="button" onClick={() => edit(entry)} className="text-xs font-semibold text-primary hover:underline">Corrigir</button><button type="button" onClick={() => void remove(entry.id)} className="text-xs font-semibold text-muted-foreground hover:text-destructive">Apagar</button></div></div>)}</div> : <p className="mt-5 rounded-lg bg-secondary/45 px-4 py-3 text-sm text-muted-foreground">Nenhum dia lançado neste mês.</p>}
     </section>
   );
 }

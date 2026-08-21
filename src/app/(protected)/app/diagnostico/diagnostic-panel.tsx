@@ -154,7 +154,7 @@ export function DiagnosticPanel() {
         <MetricCard label="Disponível seguro" value={currency(diagnostic.safeCash30d)} helper={`Reserva de ${currency(diagnostic.minimumReserve)}`} icon={<ShieldCheck className="size-4" />} />
       </section>
 
-      <DriverDailyEarningPanel onSaved={refreshAfterEarning} />
+      <DriverDailyEarningPanel compact onSaved={refreshAfterEarning} />
 
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
