@@ -145,3 +145,38 @@ test("fast launch responds immediately and preserves recent choices", () => {
   assert.match(expensePage, /Cartão/);
   assert.match(filterBar, /filter\.href/);
 });
+
+test("favorites and active filters stay visible in the fast flow", () => {
+  const quickAdd = readFileSync(new URL("../src/components/shared/quick-add-modal.tsx", import.meta.url), "utf8");
+  const recentPreferences = readFileSync(new URL("../src/lib/recent-preferences.ts", import.meta.url), "utf8");
+  const filterBar = readFileSync(new URL("../src/components/shared/filter-bar.tsx", import.meta.url), "utf8");
+  const incomeService = readFileSync(new URL("../src/services/income-service.ts", import.meta.url), "utf8");
+  const expenseService = readFileSync(new URL("../src/services/expense-service.ts", import.meta.url), "utf8");
+
+  assert.match(quickAdd, /Favoritos e recentes/);
+  assert.match(quickAdd, /toggleFavoritePreference/);
+  assert.match(recentPreferences, /favorites-v1/);
+  assert.match(recentPreferences, /favorite/);
+  assert.match(filterBar, /Filtros ativos/);
+  assert.match(filterBar, /Limpar filtros/);
+  assert.match(incomeService, /description: \{ contains: params\.q/);
+  assert.match(incomeService, /category: \{ name: \{ contains: params\.q/);
+  assert.match(expenseService, /account: \{ name: \{ contains: params\.q/);
+});
+
+test("editing and recovery paths remain explicit", () => {
+  const incomeActions = readFileSync(new URL("../src/app/(protected)/app/receitas/income-row-actions.tsx", import.meta.url), "utf8");
+  const expenseActions = readFileSync(new URL("../src/app/(protected)/app/despesas/expense-actions.tsx", import.meta.url), "utf8");
+  const dashboard = readFileSync(new URL("../src/app/(protected)/app/page.tsx", import.meta.url), "utf8");
+  const exportPage = readFileSync(new URL("../src/app/(protected)/app/exportacao/page.tsx", import.meta.url), "utf8");
+  const metrics = readFileSync(new URL("../src/lib/performance-metrics.ts", import.meta.url), "utf8");
+
+  assert.match(incomeActions, /Tentar novamente/);
+  assert.match(expenseActions, /Tentar novamente/);
+  assert.match(incomeActions, /Corrigir/);
+  assert.match(expenseActions, /Apagar/);
+  assert.match(dashboard, /Como o mês está se comportando/);
+  assert.match(exportPage, /Checklist de backup/);
+  assert.match(exportPage, /Nenhuma importação ou restauração é executada automaticamente/);
+  assert.match(metrics, /morais:\$\{name\}:\$\{status\}/);
+});
