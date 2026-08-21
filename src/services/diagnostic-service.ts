@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { accountService } from "@/services/account-service";
 import { getDriverProfile, serializeDriverProfile } from "@/services/driver-profile-service";
+import { calculatePersonalDebtBalance } from "@/services/personal-debt-service";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -25,7 +26,12 @@ export type DiagnosticPersonalDebt = {
   title: string;
   source: "PERSONAL_DEBT";
   outstandingBalance: number;
+  recordedBalance: number;
+  interestBaseBalance: number;
   interestRate: number;
+  interestStartedAt: string | null;
+  accruedInterest: number;
+  daysAccrued: number;
   dueDate: string | null;
   priority: string;
   status: string;
@@ -126,14 +132,14 @@ export async function getFinancialDiagnostic(userId: string, referenceDate = new
   const transactionOutflow30d = futureOutflow.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const personalDebtDue30d = personalDebts.reduce((sum, item) => {
     if (!item.dueDate || item.dueDate < start || item.dueDate > end) return sum;
-    return sum + item.outstandingBalance.toNumber();
+    return sum + calculatePersonalDebtBalance(item, item.dueDate).balance;
   }, 0);
   const futureOutflow30d = transactionOutflow30d + personalDebtDue30d;
   const projectedCash30d = currentCash + futureIncome30d - futureOutflow30d;
   const minimumReserve = Number(driverProfile.minimumReserve);
   const safeCash30d = Math.max(0, projectedCash30d - minimumReserve);
   const financingBalance = financings.reduce((sum, item) => sum + item.outstandingBalance.toNumber(), 0);
-  const personalDebtBalance = personalDebts.reduce((sum, item) => sum + item.outstandingBalance.toNumber(), 0);
+  const personalDebtBalance = personalDebts.reduce((sum, item) => sum + calculatePersonalDebtBalance(item, referenceDate).balance, 0);
   const serializedFinancings: DiagnosticFinancing[] = financings.map((item) => ({
     id: item.id,
     name: item.name,
@@ -155,17 +161,25 @@ export async function getFinancialDiagnostic(userId: string, referenceDate = new
       }
       return 0;
     })
-    .map((item) => ({
-      id: item.id,
-      creditor: item.creditor,
-      title: item.title,
-      source: "PERSONAL_DEBT",
-      outstandingBalance: item.outstandingBalance.toNumber(),
-      interestRate: item.interestRate.toNumber(),
-      dueDate: item.dueDate?.toISOString() ?? null,
-      priority: item.priority,
-      status: item.status,
-    }));
+    .map((item) => {
+      const calculation = calculatePersonalDebtBalance(item, referenceDate);
+      return {
+        id: item.id,
+        creditor: item.creditor,
+        title: item.title,
+        source: "PERSONAL_DEBT" as const,
+        outstandingBalance: calculation.balance,
+        recordedBalance: item.outstandingBalance.toNumber(),
+        interestBaseBalance: calculation.baseBalance,
+        interestRate: item.interestRate.toNumber(),
+        interestStartedAt: item.interestStartedAt?.toISOString() ?? null,
+        accruedInterest: calculation.accruedInterest,
+        daysAccrued: calculation.daysAccrued,
+        dueDate: item.dueDate?.toISOString() ?? null,
+        priority: item.priority,
+        status: item.status,
+      };
+    });
 
   return {
     generatedAt: new Date().toISOString(),
