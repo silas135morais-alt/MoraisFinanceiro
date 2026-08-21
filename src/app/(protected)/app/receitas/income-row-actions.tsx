@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Pencil, Trash2, X } from "lucide-react";
+import { CheckCircle2, Pencil, RefreshCw, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -38,42 +38,59 @@ export function IncomeRowActions({ accounts, categories, income }: IncomeRowActi
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [retryAction, setRetryAction] = useState<(() => Promise<void>) | null>(null);
   const isDriverDailyEarning = Boolean(income.driverDailyEarningId);
 
   async function updateIncome(payload: unknown) {
     setIsSubmitting(true);
     setMessage(null);
-    const response = await fetch(`/api/incomes/${income.id}`, {
-      body: JSON.stringify(payload),
-      headers: { "Content-Type": "application/json" },
-      method: "PUT",
-    });
-    setIsSubmitting(false);
+    setRetryAction(null);
+    try {
+      const response = await fetch(`/api/incomes/${income.id}`, {
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      });
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setMessage(body?.error ?? "Nao foi possivel atualizar.");
-      return;
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setMessage(body?.error ?? "Não foi possível atualizar.");
+        setRetryAction(() => () => updateIncome(payload));
+        return;
+      }
+
+      setIsEditing(false);
+      router.refresh();
+    } catch {
+      setMessage("Não foi possível concluir agora. Verifique a conexão.");
+      setRetryAction(() => () => updateIncome(payload));
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsEditing(false);
-    router.refresh();
   }
 
   async function deleteIncome() {
     setIsSubmitting(true);
     setMessage(null);
+    setRetryAction(null);
     const endpoint = isDriverDailyEarning ? `/api/motorista-99/realizado/${income.driverDailyEarningId}` : `/api/incomes/${income.id}`;
-    const response = await fetch(endpoint, { method: "DELETE" });
-    setIsSubmitting(false);
+    try {
+      const response = await fetch(endpoint, { method: "DELETE" });
 
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setMessage(body?.error ?? "Nao foi possivel apagar.");
-      return;
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setMessage(body?.error ?? "Não foi possível apagar.");
+        setRetryAction(() => () => deleteIncome());
+        return;
+      }
+
+      router.refresh();
+    } catch {
+      setMessage("Não foi possível concluir agora. Verifique a conexão.");
+      setRetryAction(() => () => deleteIncome());
+    } finally {
+      setIsSubmitting(false);
     }
-
-    router.refresh();
   }
 
   return (
@@ -99,10 +116,10 @@ export function IncomeRowActions({ accounts, categories, income }: IncomeRowActi
             disabled={isSubmitting}
             size="sm"
             type="button"
-            onClick={() => updateIncome({ date: new Date().toISOString().slice(0, 10), status: "PAID" })}
+            onClick={() => void updateIncome({ date: new Date().toISOString().slice(0, 10), status: "PAID" })}
           >
             <CheckCircle2 className="size-4" />
-            Receber
+            {isSubmitting ? "Salvando..." : "Receber"}
           </Button>
         ) : null}
 
@@ -118,7 +135,7 @@ export function IncomeRowActions({ accounts, categories, income }: IncomeRowActi
         </Button>
       </div>
 
-      {message ? <p className="text-xs text-destructive">{message}</p> : null}
+      {message ? <div className="flex flex-wrap items-center gap-2 text-xs text-destructive"><p>{message}</p>{retryAction ? <Button disabled={isSubmitting} size="sm" type="button" variant="outline" onClick={() => void retryAction()}><RefreshCw className="size-3.5" />Tentar novamente</Button> : null}</div> : null}
 
       {isConfirmingDelete ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs">
@@ -128,8 +145,8 @@ export function IncomeRowActions({ accounts, categories, income }: IncomeRowActi
             <Button disabled={isSubmitting} size="sm" type="button" variant="outline" onClick={() => setIsConfirmingDelete(false)}>
               Cancelar
             </Button>
-            <Button disabled={isSubmitting} size="sm" type="button" onClick={deleteIncome}>
-              Confirmar
+            <Button disabled={isSubmitting} size="sm" type="button" onClick={() => void deleteIncome()}>
+              {isSubmitting ? "Apagando..." : "Confirmar"}
             </Button>
           </div>
         </div>
