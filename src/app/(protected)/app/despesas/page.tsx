@@ -88,7 +88,7 @@ export default async function DespesasPage({ searchParams }: DespesasPageProps) 
   const budgetRows = budgets.map((budget) => ({ id: budget.id, categoryId: budget.categoryId, categoryName: budget.category.name, monthId: month.id, limit: budget.limit.toNumber(), alertPercent: budget.alertPercent, planningGroup: budget.planningGroup, spent: spentByCategory.get(budget.categoryId) ?? 0 }));
   const profile = { dailyGrossTarget: Number(driverProfile.dailyGrossTarget), workDays: Number(driverProfile.workDays), fuelPercent: Number(driverProfile.fuelPercent), maintenancePercent: Number(driverProfile.maintenancePercent), taxPercent: Number(driverProfile.taxPercent), emergencyPercent: Number(driverProfile.emergencyPercent) };
   const plannedNetMonthly = profile.dailyGrossTarget * profile.workDays * Math.max(0, 1 - (profile.fuelPercent + profile.maintenancePercent + profile.taxPercent + profile.emergencyPercent) / 100);
-  const debtRows = debts.map(serializePersonalDebt);
+  const debtRows = debts.map((item) => serializePersonalDebt(item));
 
   const baseParams = new URLSearchParams();
   if (firstParam(params.month)) baseParams.set("month", firstParam(params.month) as string);
