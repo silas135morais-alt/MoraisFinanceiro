@@ -89,6 +89,16 @@ test("no legacy mock data module remains in production source", () => {
   assert.equal(existsSync(new URL("../src/lib/mock-data.ts", import.meta.url)), false);
 });
 
+test("99 daily earning form is centralized in income flow", () => {
+  const incomePage = readFileSync(new URL("../src/app/(protected)/app/receitas/page.tsx", import.meta.url), "utf8");
+  const diagnosticPanel = readFileSync(new URL("../src/app/(protected)/app/diagnostico/diagnostic-panel.tsx", import.meta.url), "utf8");
+  const earningPanel = readFileSync(new URL("../src/app/(protected)/app/diagnostico/driver-daily-earning-panel.tsx", import.meta.url), "utf8");
+
+  assert.match(incomePage, /<DriverDailyEarningPanel \/>/);
+  assert.match(diagnosticPanel, /<DriverDailyEarningPanel compact/);
+  assert.match(earningPanel, /Registrar em Receitas/);
+});
+
 test("operational routes exist for core production flows", () => {
   [
     "../src/app/api/month-closing/confirm/route.ts",
