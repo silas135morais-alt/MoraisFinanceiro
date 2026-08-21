@@ -127,13 +127,24 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
     window.setTimeout(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }, [compact, edit, edit99Id, overview, sectionId]);
 
-  async function refreshAfterSave() {
+  function refreshAfterSave() {
     if (accountId) {
       window.localStorage.setItem(LAST_ACCOUNT_STORAGE_KEY, accountId);
       setLastAccountId(accountId);
     }
-    await onSaved?.(accountId);
+    void onSaved?.(accountId);
     router.refresh();
+  }
+
+  function applySavedEntry(entry: Entry) {
+    setOverview((current) => {
+      if (!current) return current;
+      const previous = current.entries.find((item) => item.id === entry.id);
+      const entries = [entry, ...current.entries.filter((item) => item.id !== entry.id)].sort((left, right) => right.date.localeCompare(left.date));
+      const grossTotal = current.grossTotal - (previous?.grossAmount ?? 0) + entry.grossAmount;
+      const targetTotal = current.targetTotal - (previous?.targetAmount ?? 0) + entry.targetAmount;
+      return { ...current, entries, daysWorked: current.daysWorked + (previous ? 0 : 1), grossTotal, targetTotal, difference: grossTotal - targetTotal };
+    });
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -150,8 +161,9 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "Não foi possível salvar o realizado.");
-      await load();
-      await refreshAfterSave();
+      const savedEntry = (payload.data ?? payload) as Entry;
+      applySavedEntry(savedEntry);
+      refreshAfterSave();
       setMessage(wasEditing ? "Registro corrigido. A receita e o saldo foram atualizados." : "Receita registrada. Ela já entrou no histórico e no saldo.");
       resetForm(false);
     } catch (cause) {
@@ -168,8 +180,14 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
       const response = await fetch(`/api/motorista-99/realizado/${id}`, { method: "DELETE" });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "Não foi possível apagar o registro.");
-      await load();
-      await refreshAfterSave();
+      const removed = overview?.entries.find((entry) => entry.id === id);
+      setOverview((current) => {
+        if (!current || !removed) return current;
+        const grossTotal = current.grossTotal - removed.grossAmount;
+        const targetTotal = current.targetTotal - removed.targetAmount;
+        return { ...current, entries: current.entries.filter((entry) => entry.id !== id), daysWorked: Math.max(0, current.daysWorked - 1), grossTotal, targetTotal, difference: grossTotal - targetTotal };
+      });
+      refreshAfterSave();
       setMessage("Registro e receita correspondentes foram apagados.");
       if (editingId === id) resetForm();
     } catch (cause) {
