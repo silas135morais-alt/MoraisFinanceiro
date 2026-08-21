@@ -1,5 +1,6 @@
 "use client";
 
+import { Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFinanceForm } from "@/hooks/use-finance-form";
 import { expenseSchema } from "@/validators/finance";
@@ -10,63 +11,112 @@ type SelectOption = {
   name: string;
 };
 
+type RecurrenceFrequency = "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
+
 type ExpenseFormProps = {
   accounts?: SelectOption[];
   categories?: SelectOption[];
   defaultValues?: Partial<z.input<typeof expenseSchema>>;
   isSubmitting?: boolean;
+  continueAdding?: boolean;
   onSubmit: (values: z.output<typeof expenseSchema>) => void | Promise<void>;
 };
 
-export function ExpenseForm({ accounts = [], categories = [], defaultValues, isSubmitting = false, onSubmit }: ExpenseFormProps) {
+export function ExpenseForm({ accounts = [], categories = [], defaultValues, isSubmitting = false, continueAdding = false, onSubmit }: ExpenseFormProps) {
   const form = useFinanceForm<z.input<typeof expenseSchema>, z.output<typeof expenseSchema>>(expenseSchema, defaultValues);
+  const recurrenceFrequency = form.watch("recurrenceFrequency") ?? "MONTHLY";
+  const isRecurring = form.watch("isRecurring") ?? false;
+  const type = form.watch("type") ?? "ONE_TIME";
+
+  function setRecurrence(value: string) {
+    if (value === "NONE") {
+      form.setValue("isRecurring", false, { shouldDirty: true });
+      form.setValue("recurrenceFrequency", "MONTHLY", { shouldDirty: true });
+      return;
+    }
+
+    form.setValue("isRecurring", true, { shouldDirty: true });
+    form.setValue("recurrenceFrequency", value as RecurrenceFrequency, { shouldDirty: true });
+  }
 
   return (
-    <form className="grid gap-3" onSubmit={form.handleSubmit(onSubmit)} aria-busy={isSubmitting}>
-      <label className="grid gap-1 text-sm font-medium">
+    <form className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)} aria-busy={isSubmitting}>
+      <label className="grid gap-1.5 text-sm font-medium">
         O que precisa pagar?
-        <input autoFocus className="h-10 rounded-md border bg-background px-3 text-sm font-normal" placeholder="Ex.: Internet ou parcela da moto" {...form.register("title")} />
+        <input autoFocus className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15" placeholder="Ex.: Internet ou parcela da moto" {...form.register("title")} />
+        {form.formState.errors.title ? <span className="text-xs text-destructive">{form.formState.errors.title.message}</span> : null}
       </label>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1 text-sm font-medium">
+        <label className="grid gap-1.5 text-sm font-medium">
           Categoria
-          <select className="h-10 rounded-md border bg-background px-3 text-sm font-normal" {...form.register("categoryId")}>
+          <select className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15" {...form.register("categoryId")}>
             <option value="">Selecione</option>
             {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
           </select>
+          {form.formState.errors.categoryId ? <span className="text-xs text-destructive">{form.formState.errors.categoryId.message}</span> : null}
         </label>
 
-        <label className="grid gap-1 text-sm font-medium">
+        <label className="grid gap-1.5 text-sm font-medium">
           Pagar com
-          <select className="h-10 rounded-md border bg-background px-3 text-sm font-normal" {...form.register("accountId")}>
+          <select className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15" {...form.register("accountId")}>
             <option value="">Selecione</option>
             {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+          </select>
+          {form.formState.errors.accountId ? <span className="text-xs text-destructive">{form.formState.errors.accountId.message}</span> : null}
+        </label>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <label className="grid gap-1.5 text-sm font-medium">
+          Valor
+          <input className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15" placeholder="0,00" step="0.01" type="number" {...form.register("amount")} />
+          {form.formState.errors.amount ? <span className="text-xs text-destructive">{form.formState.errors.amount.message}</span> : null}
+        </label>
+        <label className="grid gap-1.5 text-sm font-medium">
+          Data do lançamento
+          <input className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15" type="date" {...form.register("date")} />
+          {form.formState.errors.date ? <span className="text-xs text-destructive">{form.formState.errors.date.message}</span> : null}
+        </label>
+        <label className="grid gap-1.5 text-sm font-medium">
+          Vencimento
+          <input className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15" type="date" {...form.register("dueDate")} />
+          {form.formState.errors.dueDate ? <span className="text-xs text-destructive">{form.formState.errors.dueDate.message}</span> : null}
+        </label>
+      </div>
+
+      <div className="grid gap-3 rounded-xl border bg-secondary/25 p-3 sm:grid-cols-2">
+        <label className="grid gap-1.5 text-sm font-medium">
+          Recorrência
+          <select className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" value={isRecurring ? recurrenceFrequency : "NONE"} onChange={(event) => setRecurrence(event.target.value)}>
+            <option value="NONE">Não se repete</option>
+            <option value="MONTHLY">Mensal</option>
+            <option value="BIWEEKLY">Quinzenal</option>
+            <option value="WEEKLY">Semanal</option>
+            <option value="YEARLY">Anual</option>
+          </select>
+        </label>
+
+        <label className="grid gap-1.5 text-sm font-medium">
+          Situação
+          <select className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" {...form.register("status")}>
+            <option value="PENDING">Ainda não paga</option>
+            <option value="PAID">Já paga</option>
+            <option value="OVERDUE">Atrasada</option>
+            <option value="CANCELED">Cancelada</option>
           </select>
         </label>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="grid gap-1 text-sm font-medium">
-          Valor
-          <input className="h-10 rounded-md border bg-background px-3 text-sm font-normal" placeholder="0,00" step="0.01" type="number" {...form.register("amount")} />
-        </label>
-        <label className="grid gap-1 text-sm font-medium">
-          Data
-          <input className="h-10 rounded-md border bg-background px-3 text-sm font-normal" type="date" {...form.register("date")} />
-        </label>
-        <label className="grid gap-1 text-sm font-medium">
-          Vencimento
-          <input className="h-10 rounded-md border bg-background px-3 text-sm font-normal" type="date" {...form.register("dueDate")} />
-        </label>
-      </div>
-
-      <details className="rounded-lg border bg-secondary/35 p-3">
-        <summary className="cursor-pointer text-sm font-semibold">Mais opções</summary>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <label className="grid gap-1 text-sm font-medium">
-            Tipo
-            <select className="h-10 rounded-md border bg-background px-3 text-sm font-normal" {...form.register("type")}>
+      <details className="group rounded-xl border bg-background/60 px-3 py-2.5">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-muted-foreground">
+          Mais detalhes
+          <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1.5 text-sm font-medium">
+            Tipo de despesa
+            <select className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" {...form.register("type")}>
               <option value="ONE_TIME">Avulsa</option>
               <option value="FIXED">Fixa</option>
               <option value="INSTALLMENT">Parcelada</option>
@@ -74,41 +124,20 @@ export function ExpenseForm({ accounts = [], categories = [], defaultValues, isS
               <option value="FINANCING">Financiamento</option>
             </select>
           </label>
-          <label className="grid gap-1 text-sm font-medium">
+          <label className="grid gap-1.5 text-sm font-medium">
             Parcelas
-            <input className="h-10 rounded-md border bg-background px-3 text-sm font-normal" min={1} type="number" {...form.register("installments")} />
-          </label>
-          <label className="grid gap-1 text-sm font-medium">
-            Situação
-            <select className="h-10 rounded-md border bg-background px-3 text-sm font-normal" {...form.register("status")}>
-              <option value="PENDING">Pendente</option>
-              <option value="PAID">Pago</option>
-              <option value="OVERDUE">Atrasada</option>
-              <option value="CANCELED">Cancelada</option>
-            </select>
+            <input className="h-11 rounded-xl border bg-background px-3 text-sm font-normal shadow-sm" min={1} type="number" disabled={type !== "INSTALLMENT" && type !== "FINANCING"} {...form.register("installments")} />
           </label>
         </div>
-        <div className="mt-3 grid gap-3 rounded-lg border bg-background/70 p-3 sm:grid-cols-[1fr_220px]">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input className="size-4 rounded border" type="checkbox" {...form.register("isRecurring")} />
-            Repetir automaticamente nos próximos meses
-          </label>
-          <select className="h-10 rounded-md border bg-background px-3 text-sm font-normal" {...form.register("recurrenceFrequency")}>
-            <option value="MONTHLY">Mensal</option>
-            <option value="BIWEEKLY">Quinzenal</option>
-            <option value="WEEKLY">Semanal</option>
-            <option value="YEARLY">Anual</option>
-          </select>
-        </div>
-        <label className="mt-3 grid gap-1 text-sm font-medium">
+        <label className="mt-3 grid gap-1.5 text-sm font-medium">
           Observação
-          <textarea className="min-h-20 rounded-md border bg-background px-3 py-2 text-sm font-normal" placeholder="Observação opcional" {...form.register("description")} />
+          <textarea className="min-h-20 rounded-xl border bg-background px-3 py-2 text-sm font-normal shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15" placeholder="Alguma informação útil sobre esta despesa" {...form.register("description")} />
         </label>
       </details>
 
       {isSubmitting ? <p role="status" className="text-xs text-muted-foreground">Salvando sua despesa...</p> : null}
-      <Button className="mt-2 w-full sm:w-fit" disabled={isSubmitting} type="submit">
-        {isSubmitting ? "Salvando..." : "Salvar despesa"}
+      <Button className="mt-1 w-full sm:w-fit" disabled={isSubmitting} type="submit">
+        {isSubmitting ? "Salvando..." : continueAdding ? <><Check className="size-4" /> Salvar e lançar outro</> : "Salvar despesa"}
       </Button>
     </form>
   );
