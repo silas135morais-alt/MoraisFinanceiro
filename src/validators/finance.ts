@@ -127,6 +127,7 @@ export const driverDailyEarningSchema = z.object({
   date: dateString,
   accountId: z.string().min(1),
   grossAmount: z.coerce.number().finite().positive(),
+  fuelAmount: z.coerce.number().finite().nonnegative().default(0),
   notes: z.string().max(500).optional().nullable(),
 });
 
