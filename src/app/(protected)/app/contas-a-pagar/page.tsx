@@ -30,12 +30,12 @@ export default async function ContasAPagarPage() {
       <PageHeader
         eyebrow="Contas a pagar"
         title="Vencimentos e pendencias"
-        description="Esta tela mostra automaticamente despesas pendentes, vencendo e atrasadas. Use o botao abaixo para cadastrar uma conta futura."
+        description="Esta tela usa janelas operacionais a partir de hoje: vencendo hoje, próximos 7 dias e restante do mês corrente. O mês global não altera essas faixas."
       />
       <ExpenseCreateAction accounts={accountOptions} categories={categoryOptions} compact />
       <QuickSection title="Vencendo hoje" items={data.today} />
       <QuickSection title="Esta semana" items={data.week} />
-      <QuickSection title="Este mes" items={data.month} />
+      <QuickSection title="Restante do mês corrente" items={data.month} />
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <h3 className="mb-4 font-semibold">Acoes rapidas</h3>
         <div className="grid gap-2">
