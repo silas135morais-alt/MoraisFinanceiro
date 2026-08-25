@@ -1,15 +1,17 @@
 import { jsPDF } from "jspdf";
 
 import { prisma } from "@/lib/prisma";
+import { getMonthRange } from "@/lib/date-range";
 import { createXlsx } from "@/lib/xlsx-lite";
 import { logAudit } from "@/services/audit-service";
 
 type ExportEntity = "incomes" | "expenses" | "cards" | "reports";
 type ExportFormat = "csv" | "xlsx" | "pdf";
 
-async function getRows(userId: string, entity: ExportEntity) {
+async function getRows(userId: string, entity: ExportEntity, referenceDate?: Date) {
+  const range = referenceDate ? getMonthRange(referenceDate) : null;
   if (entity === "incomes") {
-    const rows = await prisma.income.findMany({ where: { userId }, include: { category: true, account: true } });
+    const rows = await prisma.income.findMany({ where: { userId, ...(range ? { date: { gte: range.startsAt, lte: range.endsAt } } : {}) }, include: { category: true, account: true } });
     return rows.map((row) => ({
       titulo: row.title,
       categoria: row.category.name,
@@ -21,7 +23,7 @@ async function getRows(userId: string, entity: ExportEntity) {
   }
 
   if (entity === "expenses") {
-    const rows = await prisma.expense.findMany({ where: { userId }, include: { category: true, account: true } });
+    const rows = await prisma.expense.findMany({ where: { userId, ...(range ? { date: { gte: range.startsAt, lte: range.endsAt } } : {}) }, include: { category: true, account: true } });
     return rows.map((row) => ({
       titulo: row.title,
       categoria: row.category.name,
@@ -46,7 +48,7 @@ async function getRows(userId: string, entity: ExportEntity) {
     }));
   }
 
-  const rows = await prisma.transaction.findMany({ where: { userId }, include: { category: true, account: true } });
+  const rows = await prisma.transaction.findMany({ where: { userId, ...(range ? { OR: [{ date: { gte: range.startsAt, lte: range.endsAt } }, { paidAt: { gte: range.startsAt, lte: range.endsAt } }, { dueDate: { gte: range.startsAt, lte: range.endsAt } }] } : {}) }, include: { category: true, account: true } });
   return rows.map((row) => ({
     tipo: row.type,
     titulo: row.title,
@@ -65,8 +67,8 @@ function toCsv(rows: Record<string, unknown>[]) {
   return [headers.join(","), ...rows.map((row) => headers.map((header) => escape(row[header])).join(","))].join("\n");
 }
 
-export async function exportData(userId: string, entity: ExportEntity, format: ExportFormat) {
-  const rows = await getRows(userId, entity);
+export async function exportData(userId: string, entity: ExportEntity, format: ExportFormat, referenceDate?: Date) {
+  const rows = await getRows(userId, entity, referenceDate);
   await logAudit({ userId, action: "EXPORTED", entity, message: `${entity} exportado em ${format}.` });
 
   if (format === "csv") {

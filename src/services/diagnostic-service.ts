@@ -80,6 +80,7 @@ function personalDebtRank(item: { priority: string; dueDate: Date | null; intere
 
 export async function getFinancialDiagnostic(userId: string, referenceDate = new Date()): Promise<FinancialDiagnosticData> {
   const { startsAt: start, endsAt: end } = getMonthRange(referenceDate);
+  const calculationDate = new Date();
 
   const [accounts, receivedIncome, futureIncome, futureOutflow, upcomingTransactions, financings, personalDebts, driverProfile] = await Promise.all([
     accountService.listWithBalances(userId),
@@ -130,7 +131,7 @@ export async function getFinancialDiagnostic(userId: string, referenceDate = new
   const minimumReserve = Number(driverProfile.minimumReserve);
   const safeCash30d = Math.max(0, projectedCash30d - minimumReserve);
   const financingBalance = financings.reduce((sum, item) => sum + item.outstandingBalance.toNumber(), 0);
-  const personalDebtBalance = personalDebts.reduce((sum, item) => sum + calculatePersonalDebtBalance(item, referenceDate).balance, 0);
+  const personalDebtBalance = personalDebts.reduce((sum, item) => sum + calculatePersonalDebtBalance(item, calculationDate).balance, 0);
   const serializedFinancings: DiagnosticFinancing[] = financings.map((item) => ({
     id: item.id,
     name: item.name,
@@ -153,7 +154,7 @@ export async function getFinancialDiagnostic(userId: string, referenceDate = new
       return 0;
     })
     .map((item) => {
-      const calculation = calculatePersonalDebtBalance(item, referenceDate);
+      const calculation = calculatePersonalDebtBalance(item, calculationDate);
       return {
         id: item.id,
         creditor: item.creditor,
