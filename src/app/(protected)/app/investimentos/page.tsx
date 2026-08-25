@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SummaryCard } from "@/components/shared/summary-card";
 import { requireUserId } from "@/lib/auth-guard";
 import { getMonthRange } from "@/lib/date-range";
+import { dateToMonthParam, firstParam, monthParamToDate } from "@/lib/month-param";
 import { currency, shortDate } from "@/lib/format";
 import { investmentService } from "@/services/investment-service";
 
@@ -13,9 +14,15 @@ import { ContributionRowActions } from "./contribution-row-actions";
 import { InvestmentActions } from "./investment-actions";
 import { InvestmentRowActions } from "./investment-row-actions";
 
-export default async function InvestimentosPage() {
+type InvestimentosPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function InvestimentosPage({ searchParams }: InvestimentosPageProps) {
+  const params = (await searchParams) ?? {};
+  const selectedMonth = firstParam(params.month) ?? dateToMonthParam(new Date());
   const investments = await investmentService.list(await requireUserId());
-  const { startsAt, endsAt } = getMonthRange(new Date());
+  const { startsAt, endsAt } = getMonthRange(monthParamToDate(selectedMonth));
   const total = investments.reduce((sum, item) => sum + Number(item.currentValue), 0);
   const contributions = investments.flatMap((item) =>
     item.contributions.map((contribution) => ({ ...contribution, investmentName: item.name })),
