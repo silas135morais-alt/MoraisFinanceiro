@@ -13,6 +13,7 @@ type Entry = {
   date: string;
   grossAmount: number;
   targetAmount: number;
+  fuelAmount: number;
   difference: number;
   targetPercent: number;
   notes: string | null;
@@ -23,6 +24,8 @@ type Overview = {
   dailyTarget: number;
   daysWorked: number;
   grossTotal: number;
+  fuelTotal: number;
+  netTotal: number;
   targetTotal: number;
   difference: number;
   entries: Entry[];
@@ -56,6 +59,7 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [date, setDate] = useState(() => todayInput());
   const [grossAmount, setGrossAmount] = useState("");
+  const [fuelAmount, setFuelAmount] = useState("");
   const [accountId, setAccountId] = useState("");
   const [lastAccountId, setLastAccountId] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem(LAST_ACCOUNT_STORAGE_KEY) ?? ""));
   const [notes, setNotes] = useState("");
@@ -105,6 +109,7 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
     setEditingId(null);
     setDate(todayInput());
     setGrossAmount("");
+    setFuelAmount("");
     setNotes("");
     if (clearMessage) setMessage("");
     setError("");
@@ -114,6 +119,7 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
     setEditingId(entry.id);
     setDate(entry.date.slice(0, 10));
     setGrossAmount(String(entry.grossAmount));
+    setFuelAmount(String(entry.fuelAmount ?? 0));
     setAccountId(entry.accountId);
     setNotes(entry.notes ?? "");
     setMessage("");
@@ -143,8 +149,9 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
       const previous = current.entries.find((item) => item.id === entry.id);
       const entries = [entry, ...current.entries.filter((item) => item.id !== entry.id)].sort((left, right) => right.date.localeCompare(left.date));
       const grossTotal = current.grossTotal - (previous?.grossAmount ?? 0) + entry.grossAmount;
+      const fuelTotal = current.fuelTotal - (previous?.fuelAmount ?? 0) + entry.fuelAmount;
       const targetTotal = current.targetTotal - (previous?.targetAmount ?? 0) + entry.targetAmount;
-      return { ...current, entries, daysWorked: current.daysWorked + (previous ? 0 : 1), grossTotal, targetTotal, difference: grossTotal - targetTotal };
+      return { ...current, entries, daysWorked: current.daysWorked + (previous ? 0 : 1), grossTotal, fuelTotal, netTotal: grossTotal - fuelTotal, targetTotal, difference: grossTotal - targetTotal };
     });
   }
 
@@ -158,7 +165,7 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
       const response = await fetch(editingId ? `/api/motorista-99/realizado/${editingId}` : "/api/motorista-99/realizado", {
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, accountId, grossAmount, notes: notes || null }),
+        body: JSON.stringify({ date, accountId, grossAmount, fuelAmount: fuelAmount || 0, notes: notes || null }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "Não foi possível salvar o realizado.");
@@ -185,8 +192,9 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
       setOverview((current) => {
         if (!current || !removed) return current;
         const grossTotal = current.grossTotal - removed.grossAmount;
+        const fuelTotal = current.fuelTotal - removed.fuelAmount;
         const targetTotal = current.targetTotal - removed.targetAmount;
-        return { ...current, entries: current.entries.filter((entry) => entry.id !== id), daysWorked: Math.max(0, current.daysWorked - 1), grossTotal, targetTotal, difference: grossTotal - targetTotal };
+        return { ...current, entries: current.entries.filter((entry) => entry.id !== id), daysWorked: Math.max(0, current.daysWorked - 1), grossTotal, fuelTotal, netTotal: grossTotal - fuelTotal, targetTotal, difference: grossTotal - targetTotal };
       });
       refreshAfterSave();
       setMessage("Registro e receita correspondentes foram apagados.");
@@ -217,7 +225,9 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <MiniStat label="Dias lançados no mês" value={String(overview.daysWorked)} />
-          <MiniStat label="Total realizado" value={currency(overview.grossTotal)} />
+          <MiniStat label="Total bruto" value={currency(overview.grossTotal)} />
+          <MiniStat label="Gasolina" value={currency(overview.fuelTotal)} />
+          <MiniStat label="Lucro líquido" value={currency(overview.netTotal)} />
           <MiniStat label="Diferença para as metas" value={currency(overview.difference)} />
         </div>
         <div className="mt-4 flex flex-col gap-3 rounded-lg bg-secondary/45 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -238,12 +248,14 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
         <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold">Meta diária: {currency(overview.dailyTarget)}</span>
       </div>
 
-      <form onSubmit={save} className="mt-4 grid gap-3 rounded-lg bg-secondary/45 p-4 md:grid-cols-4">
+      <form onSubmit={save} className="mt-4 grid gap-3 rounded-lg bg-secondary/45 p-4 md:grid-cols-5">
         <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Dia trabalhado</span><input required type="date" max={todayInput()} value={date} onChange={(event) => setDate(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" /></label>
         <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Quanto fez no dia</span><span className="flex items-center rounded-lg border bg-background px-3"><span className="mr-2 text-xs text-muted-foreground">R$</span><input autoFocus required min="0.01" step="0.01" type="number" value={grossAmount} onChange={(event) => setGrossAmount(event.target.value)} className="w-full bg-transparent py-2 text-sm outline-none" placeholder="0,00" /></span></label>
-        <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Recebi em</span><select required value={accountId} onChange={(event) => setAccountId(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm"><option value="">Selecione a conta</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
+                <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Gasolina gasta no dia</span><span className="flex items-center rounded-lg border bg-background px-3"><span className="mr-2 text-xs text-muted-foreground">R$</span><input min="0" step="0.01" type="number" value={fuelAmount} onChange={(event) => setFuelAmount(event.target.value)} className="w-full bg-transparent py-2 text-sm outline-none" placeholder="0,00" /></span></label>
+        <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Recebi em</span>
+<select required value={accountId} onChange={(event) => setAccountId(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm"><option value="">Selecione a conta</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
         <label className="block text-sm"><span className="mb-1 block text-xs font-medium text-muted-foreground">Observação (opcional)</span><input value={notes} onChange={(event) => setNotes(event.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Ex.: chuva, dia curto" /></label>
-        <div className="flex flex-wrap items-center gap-2 md:col-span-4">
+        <div className="flex flex-wrap items-center gap-2 md:col-span-5">
           <button type="submit" disabled={saving || loading || accounts.length === 0} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saving ? "Salvando..." : editingId ? "Salvar correção" : continueAdding ? "Salvar e lançar outro" : "Registrar ganho"}</button>
           {editingId ? <button type="button" onClick={() => resetForm()} className="rounded-lg border px-4 py-2 text-sm font-semibold">Cancelar</button> : null}
           {previewDifference !== null ? <span className={`text-xs font-medium ${previewDifference >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>{feedback(previewDifference)}</span> : null}
@@ -255,11 +267,15 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <MiniStat label="Dias lançados no mês" value={String(overview.daysWorked)} />
-        <MiniStat label="Total realizado" value={currency(overview.grossTotal)} />
-        <MiniStat label="Diferença para as metas" value={currency(overview.difference)} />
+                  <MiniStat label="Total bruto" value={currency(overview.grossTotal)} />
+          <MiniStat label="Gasolina no mês" value={currency(overview.fuelTotal)} />
+          <MiniStat label="Lucro líquido" value={currency(overview.netTotal)} />
+          <MiniStat label="Diferença para as metas" value={currency(overview.difference)} />
+
       </div>
 
-      {overview.entries.length ? <div className="mt-5 space-y-2">{overview.entries.slice(0, 10).map((entry) => <div key={entry.id} className="flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{shortDate(new Date(entry.date))} <span className="font-normal text-muted-foreground">· {entry.accountName}</span></p><p className={`mt-1 text-xs ${entry.difference >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>{feedback(entry.difference)}</p>{entry.notes ? <p className="mt-1 text-xs text-muted-foreground">{entry.notes}</p> : null}</div><div className="flex items-center gap-4 sm:text-right"><div><p className="font-semibold">{currency(entry.grossAmount)}</p><p className="text-xs text-muted-foreground">meta {currency(entry.targetAmount)}</p></div><button type="button" onClick={() => edit(entry)} className="text-xs font-semibold text-primary hover:underline">Corrigir</button><button type="button" onClick={() => void remove(entry.id)} className="text-xs font-semibold text-muted-foreground hover:text-destructive">Apagar</button></div></div>)}</div> : <p className="mt-5 rounded-lg bg-secondary/45 px-4 py-3 text-sm text-muted-foreground">Nenhum dia lançado neste mês.</p>}
+      {overview.entries.length ? <div className="mt-5 space-y-2">{overview.entries.slice(0, 10).map((entry) => <div key={entry.id} className="flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{shortDate(new Date(entry.date))} <span className="font-normal text-muted-foreground">· {entry.accountName}</span></p><p className={`mt-1 text-xs ${entry.difference >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}>{feedback(entry.difference)}</p>{entry.notes ? <p className="mt-1 text-xs text-muted-foreground">{entry.notes}</p> : null}</div><div className="flex items-center gap-4 sm:text-right"><div><p className="font-semibold">{currency(entry.grossAmount)}</p><p className="text-xs text-muted-foreground">gasolina {currency(entry.fuelAmount)} · líquido {currency(entry.grossAmount - entry.fuelAmount)}</p><p className="text-xs text-muted-foreground">meta {currency(entry.targetAmount)}</p>
+</div><button type="button" onClick={() => edit(entry)} className="text-xs font-semibold text-primary hover:underline">Corrigir</button><button type="button" onClick={() => void remove(entry.id)} className="text-xs font-semibold text-muted-foreground hover:text-destructive">Apagar</button></div></div>)}</div> : <p className="mt-5 rounded-lg bg-secondary/45 px-4 py-3 text-sm text-muted-foreground">Nenhum dia lançado neste mês.</p>}
     </section>
   );
 }
