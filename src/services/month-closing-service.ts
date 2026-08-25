@@ -4,6 +4,7 @@ import { notify } from "@/services/notification-service";
 import { addFrequency, formatMonthLabel } from "@/services/operational-date-service";
 import { recurrenceService } from "@/services/recurrence-service";
 import { syncTransaction } from "@/services/transaction-service";
+import { driverDailyEarningService } from "@/services/driver-daily-earning-service";
 
 function nextMonthRange(month: { startsAt: Date }) {
   const startsAt = new Date(month.startsAt);
@@ -25,20 +26,57 @@ function toJsonSafe(value: unknown) {
 export const monthClosingService = {
   async preview(userId: string, monthId: string) {
     const month = await prisma.month.findUniqueOrThrow({ where: { id: monthId, userId } });
-    const [incomes, expenses, recurring, subscriptions, financings, budgets, cards, categories] =
+    const [incomes, expenses, recurring, subscriptions, financings, budgets, cards, categories, driver] =
       await Promise.all([
-        prisma.income.count({ where: { userId, date: { gte: month.startsAt, lte: month.endsAt } } }),
-        prisma.expense.count({ where: { userId, date: { gte: month.startsAt, lte: month.endsAt } } }),
+        prisma.income.findMany({
+          where: { userId, status: { not: "CANCELED" }, date: { gte: month.startsAt, lte: month.endsAt } },
+          select: { amount: true, status: true },
+        }),
+        prisma.expense.findMany({
+          where: { userId, status: { not: "CANCELED" }, date: { gte: month.startsAt, lte: month.endsAt } },
+          select: { amount: true, status: true },
+        }),
         prisma.recurringTransaction.count({ where: { userId, isActive: true } }),
         prisma.subscription.count({ where: { userId, isActive: true } }),
         prisma.financing.count({ where: { userId, isActive: true } }),
         prisma.budget.count({ where: { userId, monthId } }),
         prisma.creditCard.count({ where: { userId, isArchived: false } }),
         prisma.category.count({ where: { userId, isActive: true } }),
+        driverDailyEarningService.list(userId, month.startsAt),
       ]);
+
+    const incomeTotal = incomes.reduce((sum, item) => sum + item.amount.toNumber(), 0);
+    const incomeReceived = incomes.filter((item) => item.status === "PAID").reduce((sum, item) => sum + item.amount.toNumber(), 0);
+    const expenseTotal = expenses.reduce((sum, item) => sum + item.amount.toNumber(), 0);
+    const expensePaid = expenses.filter((item) => item.status === "PAID").reduce((sum, item) => sum + item.amount.toNumber(), 0);
+    const incomePending = incomes.filter((item) => item.status !== "PAID").reduce((sum, item) => sum + item.amount.toNumber(), 0);
+    const expensePending = expenses.filter((item) => item.status !== "PAID").reduce((sum, item) => sum + item.amount.toNumber(), 0);
 
     return {
       month,
+      totals: {
+        incomeTotal,
+        incomeReceived,
+        incomePending,
+        expenseTotal,
+        expensePaid,
+        expensePending,
+        realizedSurplus: incomeReceived - expensePaid,
+        projectedSurplus: incomeTotal - expenseTotal,
+      },
+      driver: {
+        daysWorked: driver.daysWorked,
+        grossTotal: driver.grossTotal,
+        fuelTotal: driver.fuelTotal,
+        netTotal: driver.netTotal,
+        targetTotal: driver.targetTotal,
+        difference: driver.difference,
+      },
+      pending: {
+        incomeCount: incomes.filter((item) => item.status !== "PAID").length,
+        expenseCount: expenses.filter((item) => item.status !== "PAID").length,
+        totalCount: incomes.filter((item) => item.status !== "PAID").length + expenses.filter((item) => item.status !== "PAID").length,
+      },
       willCopy: {
         recurring,
         subscriptions,
@@ -48,7 +86,7 @@ export const monthClosingService = {
         categories,
       },
       willNotCopy: {
-        oneTimeIncomesAndExpenses: incomes + expenses,
+        oneTimeIncomesAndExpenses: incomes.length + expenses.length,
       },
     };
   },
