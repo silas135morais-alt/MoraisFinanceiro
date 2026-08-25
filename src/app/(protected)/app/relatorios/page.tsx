@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { requireUserId } from "@/lib/auth-guard";
-import { firstParam, monthParamToDate } from "@/lib/month-param";
+import { dateToMonthParam, firstParam, monthParamToDate } from "@/lib/month-param";
 import { getDashboard } from "@/services/dashboard-service";
 
 type RelatoriosPageProps = {
@@ -14,7 +14,8 @@ type RelatoriosPageProps = {
 
 export default async function RelatoriosPage({ searchParams }: RelatoriosPageProps) {
   const params = (await searchParams) ?? {};
-  const dashboard = await getDashboard(await requireUserId(), monthParamToDate(firstParam(params.month)));
+  const selectedMonth = firstParam(params.month) ?? dateToMonthParam(new Date());
+  const dashboard = await getDashboard(await requireUserId(), monthParamToDate(selectedMonth));
 
   return (
     <div className="space-y-6">
@@ -22,7 +23,7 @@ export default async function RelatoriosPage({ searchParams }: RelatoriosPagePro
         eyebrow="Relatórios"
         title="Análises e comparativos"
         description="Gráficos, comparações e exportação com base nos dados reais."
-        actions={<Button asChild variant="outline"><a href="/api/export?entity=reports&format=pdf"><Download className="size-4" />Exportar</a></Button>}
+        actions={<Button asChild variant="outline"><a href={`/api/export?entity=reports&format=pdf&month=${encodeURIComponent(selectedMonth)}`}><Download className="size-4" />Exportar</a></Button>}
       />
       <section className="grid gap-4 lg:grid-cols-2">
         <DashboardChart title="Comparativo mensal" subtitle="Saldo, entradas e saídas" data={dashboard.charts.cashFlow} />
