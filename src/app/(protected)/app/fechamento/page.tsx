@@ -5,8 +5,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SummaryCard } from "@/components/shared/summary-card";
 import { Button } from "@/components/ui/button";
 import { requireUserId } from "@/lib/auth-guard";
-import { prisma } from "@/lib/prisma";
+import { monthParamToDate } from "@/lib/month-param";
 import { monthClosingService } from "@/services/month-closing-service";
+import { ensureMonth } from "@/services/transaction-service";
 import { ensureUserWorkspace } from "@/services/workspace-service";
 
 function currency(value: number) {
@@ -17,25 +18,24 @@ function integer(value: number) {
   return value.toLocaleString("pt-BR");
 }
 
-export default async function FechamentoPage() {
+export default async function FechamentoPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const userId = await requireUserId();
   await ensureUserWorkspace(userId);
-  const month = await prisma.month.findFirst({
-    where: { userId, status: "OPEN" },
-    orderBy: { startsAt: "desc" },
-  });
-  const preview = month ? await monthClosingService.preview(userId, month.id) : null;
+  const params = await searchParams;
+  const selectedDate = monthParamToDate(params.month);
+  const month = await ensureMonth(userId, selectedDate);
+  const preview = await monthClosingService.preview(userId, month.id);
+  const isOpen = month.status === "OPEN";
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Fechamento mensal"
-        title={preview ? `Conferência de ${preview.month.label}` : "Resumo antes da confirmação"}
-        description="Consolide o mês sem apagar lançamentos. Depois da confirmação, o período fica registrado e o próximo mês é preparado automaticamente."
+        title={`Conferência de ${preview.month.label}`}
+        description={isOpen ? "Consolide o mês sem apagar lançamentos. Depois da confirmação, o período fica registrado e o próximo mês é preparado automaticamente." : "Este mês está fechado e disponível para consulta histórica. Os lançamentos permanecem preservados."}
       />
 
-      {preview ? (
-        <>
+      <>
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryCard title="Entradas do mês" value={currency(preview.totals.incomeTotal)} helper={`${currency(preview.totals.incomeReceived)} recebidos · ${currency(preview.totals.incomePending)} pendentes`} icon={ArrowUpRight} tone="green" />
             <SummaryCard title="Despesas do mês" value={currency(preview.totals.expenseTotal)} helper={`${currency(preview.totals.expensePaid)} pagas · ${currency(preview.totals.expensePending)} pendentes`} icon={ArrowDownRight} tone="rose" />
@@ -81,20 +81,19 @@ export default async function FechamentoPage() {
           <section className="rounded-lg border bg-card p-5 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="font-semibold">Confirmar fechamento de {preview.month.label}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">O mês será marcado como fechado, o saldo será levado para o próximo ciclo e as recorrências serão preparadas sem duplicar lançamentos avulsos.</p>
+                <h2 className="font-semibold">{isOpen ? `Confirmar fechamento de ${preview.month.label}` : `${preview.month.label} já está fechado`}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{isOpen ? "O mês será marcado como fechado, o saldo será levado para o próximo ciclo e as recorrências serão preparadas sem duplicar lançamentos avulsos." : "Este resumo foi salvo no histórico. Para corrigir dados, reabra o mês antes de fazer novas alterações."}</p>
               </div>
-              <form action={closeMonthAction.bind(null, preview.month.id)}>
-                <Button type="submit"><Copy className="mr-2 size-4" aria-hidden="true" />Confirmar fechamento</Button>
-              </form>
+              {isOpen ? (
+                <form action={closeMonthAction.bind(null, preview.month.id)}>
+                  <Button type="submit"><Copy className="mr-2 size-4" aria-hidden="true" />Confirmar fechamento</Button>
+                </form>
+              ) : (
+                <div className="inline-flex items-center gap-2 rounded-md border bg-muted px-3 py-2 text-sm font-medium text-muted-foreground"><LockKeyhole className="size-4" aria-hidden="true" />Mês fechado</div>
+              )}
             </div>
           </section>
         </>
-      ) : (
-        <section className="rounded-lg border bg-card p-8 text-sm text-muted-foreground">
-          Nenhum mês aberto encontrado.
-        </section>
-      )}
     </div>
   );
 }
