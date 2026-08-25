@@ -13,6 +13,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
+    "db:backup": "bash scripts/db-backup.sh",
     "test": "node --test tests/*.test.mjs",
     "validate": "npm run test && npm run lint && npm run typecheck && prisma validate && npm run build"
   },
