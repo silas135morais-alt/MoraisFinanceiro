@@ -17,6 +17,10 @@ const debtInterestMigration = readFileSync(
   new URL("../prisma/migrations/20260821190000_personal_debt_daily_interest/migration.sql", import.meta.url),
   "utf8",
 );
+const driverFuelMigration = readFileSync(
+  new URL("../prisma/migrations/20260825120000_driver_daily_fuel/migration.sql", import.meta.url),
+  "utf8",
+);
 
 test("schema contains required financial models", () => {
   [
@@ -66,6 +70,21 @@ test("driver daily earnings migration protects one realized entry per day", () =
   assert.match(driverDailyMigration, /CREATE TABLE "DriverDailyEarning"/);
   assert.match(driverDailyMigration, /CREATE UNIQUE INDEX "DriverDailyEarning_userId_date_key"/);
   assert.match(driverDailyMigration, /REFERENCES "Income"\("id"\)/);
+});
+
+test("driver daily earnings support idempotent real fuel costs and net profit", () => {
+  const driverService = readFileSync(new URL("../src/services/driver-daily-earning-service.ts", import.meta.url), "utf8");
+  const earningPanel = readFileSync(new URL("../src/app/(protected)/app/diagnostico/driver-daily-earning-panel.tsx", import.meta.url), "utf8");
+
+  assert.match(schema, /fuelAmount\s+Decimal\s+@default\(0\)/);
+  assert.match(schema, /fuelExpenseId\s+String\?\s+@unique/);
+  assert.match(driverFuelMigration, /ADD COLUMN "fuelAmount" DECIMAL/);
+  assert.match(driverFuelMigration, /ADD COLUMN "fuelExpenseId" TEXT/);
+  assert.match(driverService, /syncFuelExpense/);
+  assert.match(driverService, /sourceType: "Expense"/);
+  assert.match(driverService, /fuelExpenseId: existing\?\.fuelExpenseId/);
+  assert.match(earningPanel, /Gasolina gasta no dia/);
+  assert.match(earningPanel, /Lucro líquido/);
 });
 
 test("personal debt interest migration stores the daily calculation base", () => {
@@ -233,6 +252,15 @@ test("favorites and active filters stay visible in the fast flow", () => {
   assert.match(expenseService, /account: \{ name: \{ contains: params\.q/);
 });
 
+test("monthly dashboard projection does not leak the next recurring occurrence", () => {
+  const dashboardService = readFileSync(new URL("../src/services/dashboard-service.ts", import.meta.url), "utf8");
+
+  assert.match(dashboardService, /const monthlyFutureWindow =/);
+  assert.match(dashboardService, /dueDate: \{ gte: startsAt, lte: endsAt \}/);
+  assert.match(dashboardService, /status: \{ in: \["PENDING", "OVERDUE"\] \}/);
+  assert.doesNotMatch(dashboardService, /projectionStart|projectionEnd|setUTCDate\([^\n]*\+ 30/);
+});
+
 test("editing and recovery paths remain explicit", () => {
   const incomeActions = readFileSync(new URL("../src/app/(protected)/app/receitas/income-row-actions.tsx", import.meta.url), "utf8");
   const expenseActions = readFileSync(new URL("../src/app/(protected)/app/despesas/expense-actions.tsx", import.meta.url), "utf8");
@@ -248,4 +276,22 @@ test("editing and recovery paths remain explicit", () => {
   assert.match(exportPage, /Checklist de backup/);
   assert.match(exportPage, /Nenhuma importação ou restauração é executada automaticamente/);
   assert.match(metrics, /morais:\$\{name\}:\$\{status\}/);
+});
+
+
+test("diagnostic keeps selected month, debt outflows, and civil dates consistent", () => {
+  const diagnosticRoute = readFileSync(new URL("../src/app/api/diagnostico/route.ts", import.meta.url), "utf8");
+  const diagnosticPanel = readFileSync(new URL("../src/app/(protected)/app/diagnostico/diagnostic-panel.tsx", import.meta.url), "utf8");
+  const earningPanel = readFileSync(new URL("../src/app/(protected)/app/diagnostico/driver-daily-earning-panel.tsx", import.meta.url), "utf8");
+  const format = readFileSync(new URL("../src/lib/format.ts", import.meta.url), "utf8");
+
+  assert.match(diagnosticRoute, /searchParams\.get\("month"\)/);
+  assert.match(diagnosticRoute, /getFinancialDiagnostic\(await requireUserId\(\), referenceDate\)/);
+  assert.match(diagnosticPanel, /const selectedMonth = searchParams\.get\("month"\)/);
+  assert.match(diagnosticPanel, /futureOutflow30d/);
+  assert.match(diagnosticPanel, /personalDebtDue30d/);
+  assert.match(diagnosticPanel, /month=\$\{encodeURIComponent\(selectedMonth\)\}/);
+  assert.match(earningPanel, /month\?: string \| null/);
+  assert.match(earningPanel, /month=\$\{encodeURIComponent\(month\)\}/);
+  assert.match(format, /timeZone: "UTC"/);
 });
