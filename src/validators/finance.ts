@@ -157,6 +157,7 @@ export const importSchema = z.object({
 export const exportSchema = z.object({
   entity: z.enum(["incomes", "expenses", "cards", "reports"]).default("reports"),
   format: z.enum(["csv", "xlsx", "pdf"]).default("csv"),
+  month: z.string().regex(/^\\d{4}-(0[1-9]|1[0-2])$/).optional(),
 });
 
 export const budgetSchema = z.object({
