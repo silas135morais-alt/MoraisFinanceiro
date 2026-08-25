@@ -4,6 +4,7 @@ import { getDriverProfile } from "@/services/driver-profile-service";
 import { driverDailyEarningSchema } from "@/validators/finance";
 
 const DRIVER_CATEGORY_NAME = "Motorista 99";
+const FUEL_CATEGORY_NAME = "Gasolina";
 
 type DecimalLike = { toNumber(): number };
 
@@ -13,6 +14,8 @@ type DailyEntry = {
   date: Date;
   grossAmount: DecimalLike;
   targetAmount: DecimalLike;
+  fuelAmount: DecimalLike;
+  fuelExpenseId: string | null;
   notes: string | null;
   income: {
     accountId: string;
@@ -52,6 +55,8 @@ function serialize(entry: DailyEntry) {
     date: entry.date.toISOString(),
     grossAmount,
     targetAmount,
+    fuelAmount: Number(entry.fuelAmount),
+    fuelExpenseId: entry.fuelExpenseId,
     difference,
     targetPercent: targetAmount > 0 ? (grossAmount / targetAmount) * 100 : 0,
     notes: entry.notes,
@@ -66,6 +71,70 @@ async function getDriverCategory(userId: string) {
     update: { isActive: true },
     create: { userId, type: "INCOME", name: DRIVER_CATEGORY_NAME, color: "#15803d", isDefault: false },
   });
+}
+
+async function getFuelCategory(userId: string) {
+  return prisma.category.upsert({
+    where: { userId_type_name: { userId, type: "EXPENSE", name: FUEL_CATEGORY_NAME } },
+    update: { isActive: true },
+    create: { userId, type: "EXPENSE", name: FUEL_CATEGORY_NAME, color: "#d97706", isDefault: false },
+  });
+}
+
+async function syncFuelExpense({
+  userId,
+  fuelExpenseId,
+  accountId,
+  date,
+  fuelAmount,
+}: {
+  userId: string;
+  fuelExpenseId: string | null;
+  accountId: string;
+  date: Date;
+  fuelAmount: number;
+}) {
+  if (fuelAmount <= 0) {
+    if (fuelExpenseId) {
+      await prisma.transaction.deleteMany({ where: { userId, sourceType: "Expense", sourceId: fuelExpenseId } });
+      await prisma.expense.delete({ where: { id: fuelExpenseId, userId } });
+    }
+    return null;
+  }
+
+  const category = await getFuelCategory(userId);
+  const data = {
+    categoryId: category.id,
+    accountId,
+    title: `Gasolina — 99 — ${dateLabel(date)}`,
+    amount: fuelAmount,
+    date,
+    dueDate: null,
+    description: "Despesa vinculada ao ganho diário da 99.",
+    type: "ONE_TIME" as const,
+    status: "PAID" as const,
+    isRecurring: false,
+  };
+  const expense = fuelExpenseId
+    ? await prisma.expense.update({ where: { id: fuelExpenseId, userId }, data })
+    : await prisma.expense.create({ data: { ...data, userId } });
+  const transaction = await syncTransaction({
+    userId,
+    accountId: expense.accountId,
+    categoryId: expense.categoryId,
+    type: "EXPENSE",
+    status: "PAID",
+    title: expense.title,
+    amount: expense.amount,
+    date: expense.date,
+    dueDate: expense.dueDate,
+    description: expense.description,
+    paidAt: expense.date,
+    sourceId: expense.id,
+    sourceType: "Expense",
+  });
+  await prisma.expense.update({ where: { id: expense.id, userId }, data: { transactionId: transaction.id } });
+  return expense.id;
 }
 
 async function getEntry(userId: string, id: string) {
@@ -90,12 +159,15 @@ export const driverDailyEarningService = {
     const entries = items.map((item) => serialize(item as DailyEntry));
     const dailyTarget = Number(profile.dailyGrossTarget);
     const grossTotal = entries.reduce((sum, item) => sum + item.grossAmount, 0);
+    const fuelTotal = entries.reduce((sum, item) => sum + item.fuelAmount, 0);
     const targetTotal = entries.reduce((sum, item) => sum + item.targetAmount, 0);
     return {
       month: `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}`,
       dailyTarget,
       daysWorked: entries.length,
       grossTotal,
+      fuelTotal,
+      netTotal: grossTotal - fuelTotal,
       targetTotal,
       difference: grossTotal - targetTotal,
       entries,
@@ -117,6 +189,7 @@ export const driverDailyEarningService = {
     if (!account) throw new Error("Conta de recebimento não encontrada.");
 
     const targetAmount = Number(profile.dailyGrossTarget);
+    const fuelAmount = Number(data.fuelAmount ?? 0);
     const title = "99 — realizado do dia";
     const existing = data.id
       ? await prisma.driverDailyEarning.findFirst({ where: { id: data.id, userId } })
@@ -142,7 +215,7 @@ export const driverDailyEarningService = {
       incomeId = income.id;
       await prisma.driverDailyEarning.update({
         where: { id: existing.id, userId },
-        data: { date, grossAmount: data.grossAmount, targetAmount: recordedTarget, notes: data.notes ?? null },
+        data: { date, grossAmount: data.grossAmount, targetAmount: recordedTarget, fuelAmount, notes: data.notes ?? null },
       });
     } else {
       const income = await prisma.income.create({
@@ -160,9 +233,21 @@ export const driverDailyEarningService = {
       });
       incomeId = income.id;
       await prisma.driverDailyEarning.create({
-        data: { userId, incomeId, date, grossAmount: data.grossAmount, targetAmount: recordedTarget, notes: data.notes ?? null },
+        data: { userId, incomeId, date, grossAmount: data.grossAmount, targetAmount: recordedTarget, fuelAmount, notes: data.notes ?? null },
       });
     }
+
+    const fuelExpenseId = await syncFuelExpense({
+      userId,
+      fuelExpenseId: existing?.fuelExpenseId ?? null,
+      accountId: account.id,
+      date,
+      fuelAmount,
+    });
+    await prisma.driverDailyEarning.update({
+      where: { incomeId },
+      data: { fuelAmount, fuelExpenseId },
+    });
 
     const income = await prisma.income.findUniqueOrThrow({ where: { id: incomeId } });
     await syncTransaction({
@@ -190,6 +275,10 @@ export const driverDailyEarningService = {
 
   async remove(userId: string, id: string) {
     const entry = await prisma.driverDailyEarning.findFirstOrThrow({ where: { id, userId } });
+    if (entry.fuelExpenseId) {
+      await prisma.transaction.deleteMany({ where: { userId, sourceType: "Expense", sourceId: entry.fuelExpenseId } });
+      await prisma.expense.delete({ where: { id: entry.fuelExpenseId, userId } });
+    }
     await prisma.transaction.deleteMany({ where: { userId, sourceType: "Income", sourceId: entry.incomeId } });
     await prisma.income.delete({ where: { id: entry.incomeId, userId } });
     return { id };
