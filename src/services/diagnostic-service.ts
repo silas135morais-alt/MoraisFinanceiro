@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { accountService } from "@/services/account-service";
+import { getMonthRange } from "@/lib/date-range";
 import { getDriverProfile, serializeDriverProfile } from "@/services/driver-profile-service";
 import { calculatePersonalDebtBalance } from "@/services/personal-debt-service";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 type DecimalLike = { toNumber(): number };
 
@@ -58,15 +58,7 @@ export type FinancialDiagnosticData = {
   upcoming: Array<{ id: string; title: string; amount: number; dueDate: string; type: string }>;
 };
 
-function startOfDay(date: Date) {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
-}
 
-function endOfWindow(date: Date) {
-  return new Date(startOfDay(date).getTime() + 30 * DAY_MS + DAY_MS - 1);
-}
 
 async function listPersonalDebtsSafely(userId: string) {
   try {
@@ -87,8 +79,7 @@ function personalDebtRank(item: { priority: string; dueDate: Date | null; intere
 }
 
 export async function getFinancialDiagnostic(userId: string, referenceDate = new Date()): Promise<FinancialDiagnosticData> {
-  const start = startOfDay(referenceDate);
-  const end = endOfWindow(referenceDate);
+  const { startsAt: start, endsAt: end } = getMonthRange(referenceDate);
 
   const [accounts, receivedIncome, futureIncome, futureOutflow, upcomingTransactions, financings, personalDebts, driverProfile] = await Promise.all([
     accountService.listWithBalances(userId),
