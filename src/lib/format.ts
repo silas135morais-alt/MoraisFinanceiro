@@ -7,5 +7,5 @@ export function currency(value: number) {
 
 export function shortDate(date: Date | string | null | undefined) {
   if (!date) return "-";
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(date));
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", timeZone: "UTC" }).format(new Date(date));
 }
