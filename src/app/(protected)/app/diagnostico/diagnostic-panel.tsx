@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, CheckCircle2, ChevronDown, Fuel, Gauge, ShieldCheck } from "lucide-react";
 
@@ -40,6 +41,8 @@ type Diagnostic = {
   receivedIncome30d: number;
   futureIncome30d: number;
   transactionOutflow30d: number;
+  personalDebtDue30d: number;
+  futureOutflow30d: number;
   projectedCash30d: number;
   minimumReserve: number;
   safeCash30d: number;
@@ -80,6 +83,8 @@ function addMonths(date: Date, months: number) {
 }
 
 export function DiagnosticPanel() {
+  const searchParams = useSearchParams();
+  const selectedMonth = searchParams.get("month");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [diagnostic, setDiagnostic] = useState<Diagnostic | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,7 +101,8 @@ export function DiagnosticPanel() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/diagnostico", { cache: "no-store" })
+    const query = selectedMonth ? `?month=${encodeURIComponent(selectedMonth)}` : "";
+    fetch(`/api/diagnostico${query}`, { cache: "no-store" })
       .then((response) => response.json())
       .then((payload) => {
         const data = payload.data ?? payload;
@@ -105,7 +111,7 @@ export function DiagnosticPanel() {
       })
       .catch(() => setDiagnostic(null))
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedMonth]);
 
   const plan = useMemo(() => {
     if (!diagnostic) return null;
@@ -130,7 +136,8 @@ export function DiagnosticPanel() {
   }
 
   async function refreshAfterEarning() {
-    const response = await fetch("/api/diagnostico", { cache: "no-store" });
+    const query = selectedMonth ? `?month=${encodeURIComponent(selectedMonth)}` : "";
+    const response = await fetch(`/api/diagnostico${query}`, { cache: "no-store" });
     const payload = await response.json();
     if (!response.ok) return;
     const data = payload.data ?? payload;
@@ -185,11 +192,11 @@ export function DiagnosticPanel() {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Saldo real hoje" value={currency(diagnostic.currentCash)} helper="Dinheiro confirmado" icon={<Gauge className="size-4" />} />
         <MetricCard label="Recebimentos previstos" value={currency(diagnostic.futureIncome30d)} helper="Ainda não recebidos" icon={<CheckCircle2 className="size-4" />} />
-        <MetricCard label="Despesas previstas" value={currency(diagnostic.transactionOutflow30d)} helper="Contas e cartões" icon={<CalendarDays className="size-4" />} />
+        <MetricCard label="Saídas previstas" value={currency(diagnostic.futureOutflow30d)} helper={`${currency(diagnostic.transactionOutflow30d)} contas + ${currency(diagnostic.personalDebtDue30d)} dívidas`} icon={<CalendarDays className="size-4" />} />
         <MetricCard label="Disponível seguro" value={currency(diagnostic.safeCash30d)} helper={`Reserva de ${currency(diagnostic.minimumReserve)}`} icon={<ShieldCheck className="size-4" />} />
       </section>
 
-      <DriverDailyEarningPanel compact onSaved={refreshAfterEarning} />
+      <DriverDailyEarningPanel compact month={selectedMonth} onSaved={refreshAfterEarning} />
 
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -202,7 +209,8 @@ export function DiagnosticPanel() {
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <MiniStat label="Saldo real" value={currency(diagnostic.currentCash)} />
           <MiniStat label="Entradas previstas" value={`+ ${currency(diagnostic.futureIncome30d)}`} />
-          <MiniStat label="Saídas previstas" value={`− ${currency(diagnostic.transactionOutflow30d)}`} />
+          <MiniStat label="Contas e cartões" value={`− ${currency(diagnostic.transactionOutflow30d)}`} />
+          <MiniStat label="Dívidas previstas" value={`− ${currency(diagnostic.personalDebtDue30d)}`} />
         </div>
       </section>
 

@@ -37,6 +37,7 @@ type Props = {
   preferredAccountId?: string;
   sectionId?: string;
   continueAdding?: boolean;
+  month?: string | null;
 };
 
 const LAST_ACCOUNT_STORAGE_KEY = "morais-financeiro-last-account-v1";
@@ -51,7 +52,7 @@ function feedback(difference: number) {
   return `Abaixo da meta em ${currency(Math.abs(difference))}`;
 }
 
-export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAccountId, sectionId = "ganho-99", continueAdding = false }: Props) {
+export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAccountId, sectionId = "ganho-99", continueAdding = false, month }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const edit99Id = searchParams.get("edit99");
@@ -72,7 +73,8 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const earningResponse = await fetch("/api/motorista-99/realizado", { cache: "no-store" });
+      const query = month ? `?month=${encodeURIComponent(month)}` : "";
+      const earningResponse = await fetch(`/api/motorista-99/realizado${query}`, { cache: "no-store" });
       const earningPayload = await earningResponse.json();
       if (!earningResponse.ok) throw new Error(earningPayload.error ?? "Não foi possível carregar os realizados.");
 
@@ -93,7 +95,7 @@ export function DriverDailyEarningPanel({ onSaved, compact = false, preferredAcc
     } finally {
       setLoading(false);
     }
-  }, [compact, lastAccountId, preferredAccountId]);
+  }, [compact, lastAccountId, month, preferredAccountId]);
 
   useEffect(() => {
     void load();
