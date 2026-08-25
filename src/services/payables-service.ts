@@ -4,10 +4,10 @@ import { prisma } from "@/lib/prisma";
 
 function dayRange(offset: number) {
   const start = new Date();
-  start.setDate(start.getDate() + offset);
-  start.setHours(0, 0, 0, 0);
+  start.setUTCDate(start.getUTCDate() + offset);
+  start.setUTCHours(0, 0, 0, 0);
   const end = new Date(start);
-  end.setHours(23, 59, 59, 999);
+  end.setUTCHours(23, 59, 59, 999);
   return { start, end };
 }
 
@@ -15,10 +15,9 @@ export const payablesService = {
   async listPayables(userId: string) {
     const today = dayRange(0);
     const weekEnd = new Date();
-    weekEnd.setDate(weekEnd.getDate() + 7);
-    weekEnd.setHours(23, 59, 59, 999);
-    const monthEnd = new Date(today.start.getFullYear(), today.start.getMonth() + 1, 0);
-    monthEnd.setHours(23, 59, 59, 999);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+    weekEnd.setUTCHours(23, 59, 59, 999);
+    const monthEnd = new Date(Date.UTC(today.start.getUTCFullYear(), today.start.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 
     const base: Prisma.TransactionWhereInput = { userId, status: { in: ["PENDING", "OVERDUE"] }, type: { in: ["EXPENSE", "CREDIT_CARD_PURCHASE"] } };
 
@@ -38,10 +37,9 @@ export const payablesService = {
   async listReceivables(userId: string) {
     const today = dayRange(0);
     const weekEnd = new Date();
-    weekEnd.setDate(weekEnd.getDate() + 7);
-    weekEnd.setHours(23, 59, 59, 999);
-    const monthEnd = new Date(today.start.getFullYear(), today.start.getMonth() + 1, 0);
-    monthEnd.setHours(23, 59, 59, 999);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+    weekEnd.setUTCHours(23, 59, 59, 999);
+    const monthEnd = new Date(Date.UTC(today.start.getUTCFullYear(), today.start.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 
     const base: Prisma.TransactionWhereInput = { userId, status: { in: ["PENDING", "OVERDUE"] }, type: "INCOME" };
 

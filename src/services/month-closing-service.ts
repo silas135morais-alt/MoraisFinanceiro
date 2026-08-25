@@ -8,15 +8,15 @@ import { driverDailyEarningService } from "@/services/driver-daily-earning-servi
 
 function nextMonthRange(month: { startsAt: Date }) {
   const startsAt = new Date(month.startsAt);
-  startsAt.setMonth(startsAt.getMonth() + 1);
-  startsAt.setDate(1);
-  startsAt.setHours(0, 0, 0, 0);
+  startsAt.setUTCMonth(startsAt.getUTCMonth() + 1);
+  startsAt.setUTCDate(1);
+  startsAt.setUTCHours(0, 0, 0, 0);
 
   const endsAt = new Date(startsAt);
-  endsAt.setMonth(endsAt.getMonth() + 1);
-  endsAt.setMilliseconds(-1);
+  endsAt.setUTCMonth(endsAt.getUTCMonth() + 1);
+  endsAt.setUTCMilliseconds(-1);
 
-  return { startsAt, endsAt, year: startsAt.getFullYear(), month: startsAt.getMonth() + 1 };
+  return { startsAt, endsAt, year: startsAt.getUTCFullYear(), month: startsAt.getUTCMonth() + 1 };
 }
 
 function toJsonSafe(value: unknown) {
@@ -93,6 +93,8 @@ export const monthClosingService = {
 
   async confirm(userId: string, monthId: string) {
     const month = await prisma.month.findUniqueOrThrow({ where: { id: monthId, userId } });
+    const existingClosing = await prisma.monthClosing.findUnique({ where: { userId_monthId: { userId, monthId } } });
+    if (existingClosing) return existingClosing;
     const range = nextMonthRange(month);
     const preview = await this.preview(userId, monthId);
 
@@ -131,17 +133,18 @@ export const monthClosingService = {
     await this.generateFinancings(userId, nextMonth.endsAt);
 
     const summary = toJsonSafe(preview);
-    await prisma.month.update({ where: { id: month.id, userId }, data: { status: "CLOSED", closedAt: new Date() } });
-    const closing = await prisma.monthClosing.upsert({
-      where: { userId_monthId: { userId, monthId } },
-      update: { nextMonthId: nextMonth.id, summary, confirmedAt: new Date() },
-      create: {
-        userId,
-        monthId,
-        nextMonthId: nextMonth.id,
-        summary,
-        confirmedAt: new Date(),
-      },
+    const confirmedAt = new Date();
+    const closing = await prisma.$transaction(async (tx) => {
+      await tx.month.update({ where: { id: month.id, userId }, data: { status: "CLOSED", closedAt: confirmedAt } });
+      return tx.monthClosing.create({
+        data: {
+          userId,
+          monthId,
+          nextMonthId: nextMonth.id,
+          summary,
+          confirmedAt,
+        },
+      });
     });
 
     await notify({
@@ -168,6 +171,15 @@ export const monthClosingService = {
     });
 
     for (const subscription of subscriptions) {
+      const occurrenceMarker = `[auto-subscription:${subscription.id}:${subscription.nextChargeAt.toISOString()}]`;
+      const existingOccurrence = await prisma.expense.findFirst({ where: { userId, description: occurrenceMarker } });
+      if (existingOccurrence) {
+        await prisma.subscription.update({
+          where: { id: subscription.id, userId },
+          data: { nextChargeAt: addFrequency(subscription.nextChargeAt, subscription.frequency) },
+        });
+        continue;
+      }
       const expense = await prisma.expense.create({
         data: {
           userId,
@@ -177,6 +189,7 @@ export const monthClosingService = {
           amount: subscription.amount,
           date: subscription.nextChargeAt,
           dueDate: subscription.nextChargeAt,
+          description: occurrenceMarker,
           type: "SUBSCRIPTION",
           isRecurring: true,
           status: subscription.status,
@@ -211,6 +224,20 @@ export const monthClosingService = {
     });
 
     for (const financing of financings) {
+      const occurrenceMarker = `[auto-financing:${financing.id}:${financing.nextDueDate.toISOString()}]`;
+      const existingOccurrence = await prisma.expense.findFirst({ where: { userId, description: occurrenceMarker } });
+      if (existingOccurrence) {
+        await prisma.financing.update({
+          where: { id: financing.id, userId },
+          data: {
+            currentInstallment: Math.min(financing.currentInstallment + 1, financing.installments),
+            outstandingBalance: Math.max(0, financing.outstandingBalance.toNumber() - financing.installmentAmount.toNumber()),
+            nextDueDate: addFrequency(financing.nextDueDate, "MONTHLY"),
+            isActive: financing.currentInstallment + 1 <= financing.installments,
+          },
+        });
+        continue;
+      }
       const expense = await prisma.expense.create({
         data: {
           userId,
@@ -220,6 +247,7 @@ export const monthClosingService = {
           amount: financing.installmentAmount,
           date: financing.nextDueDate,
           dueDate: financing.nextDueDate,
+          description: occurrenceMarker,
           type: "FINANCING",
           installments: financing.installments,
           installmentNumber: financing.currentInstallment,

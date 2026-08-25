@@ -9,6 +9,7 @@ import { incomeSchema } from "@/validators/finance";
 
 type CreateIncomeOptions = {
   recurringTransactionId?: string;
+  occurrenceDate?: Date;
   skipRecurringSetup?: boolean;
 };
 
@@ -105,7 +106,7 @@ export const incomeService = {
           ...data,
           date,
           isRecurring: shouldCreateRecurringSeries || data.isRecurring,
-          recurrenceOccurrenceDate: shouldCreateRecurringSeries ? date : undefined,
+          recurrenceOccurrenceDate: options.occurrenceDate ?? (shouldCreateRecurringSeries ? date : undefined),
           recurringTransactionId,
           status,
           userId,

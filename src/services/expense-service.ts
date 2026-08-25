@@ -10,6 +10,7 @@ import { expenseSchema } from "@/validators/finance";
 
 type CreateExpenseOptions = {
   recurringTransactionId?: string;
+  occurrenceDate?: Date;
   skipRecurringSetup?: boolean;
 };
 
@@ -132,7 +133,7 @@ export const expenseService = {
           installmentNumber: installments > 1 ? index + 1 : undefined,
           parentExpenseId: installments > 1 && index > 0 ? parentId : undefined,
           isRecurring: shouldCreateRecurringSeries || data.isRecurring,
-          recurrenceOccurrenceDate: shouldCreateRecurringSeries ? dueDate : undefined,
+          recurrenceOccurrenceDate: options.occurrenceDate ?? (shouldCreateRecurringSeries ? dueDate : undefined),
           recurringTransactionId,
           status,
         },

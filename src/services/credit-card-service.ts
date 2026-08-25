@@ -286,10 +286,9 @@ export const creditCardService = {
 };
 
 function invoiceDueDate(date: Date, card: { closingDay: number; dueDay: number }) {
-  const due = new Date(date);
-  due.setMonth(due.getMonth() + (date.getDate() <= card.closingDay ? 1 : 2));
-  due.setDate(Math.min(card.dueDay, 28));
-  due.setHours(12, 0, 0, 0);
+  const due = addMonths(date, date.getUTCDate() <= card.closingDay ? 1 : 2);
+  due.setUTCDate(Math.min(card.dueDay, 28));
+  due.setUTCHours(12, 0, 0, 0);
   return due;
 }
 

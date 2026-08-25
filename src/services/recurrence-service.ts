@@ -28,6 +28,18 @@ export const recurrenceService = {
 
     for (const rule of rules) {
       if (rule.endsAt && rule.nextRunAt > rule.endsAt) continue;
+      const occurrenceDate = rule.nextRunAt;
+      const existingOccurrence = rule.type === "INCOME"
+        ? await prisma.income.findFirst({ where: { userId, recurringTransactionId: rule.id, recurrenceOccurrenceDate: occurrenceDate } })
+        : await prisma.expense.findFirst({ where: { userId, recurringTransactionId: rule.id, recurrenceOccurrenceDate: occurrenceDate } });
+
+      if (existingOccurrence) {
+        await prisma.recurringTransaction.update({
+          where: { id: rule.id, userId },
+          data: { nextRunAt: addFrequency(rule.nextRunAt, rule.frequency) },
+        });
+        continue;
+      }
 
       if (rule.type === "INCOME" && rule.categoryId && rule.accountId) {
         const income = await incomeService.create(
@@ -41,7 +53,7 @@ export const recurrenceService = {
             isRecurring: true,
             status: "PENDING",
           },
-          { recurringTransactionId: rule.id, skipRecurringSetup: true },
+          { recurringTransactionId: rule.id, occurrenceDate, skipRecurringSetup: true },
         );
         generated.push(income);
       }
@@ -60,7 +72,7 @@ export const recurrenceService = {
             isRecurring: true,
             status: "PENDING",
           },
-          { recurringTransactionId: rule.id, skipRecurringSetup: true },
+          { recurringTransactionId: rule.id, occurrenceDate, skipRecurringSetup: true },
         );
         generated.push(expense);
       }
