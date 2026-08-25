@@ -21,6 +21,10 @@ const driverFuelMigration = readFileSync(
   new URL("../prisma/migrations/20260825120000_driver_daily_fuel/migration.sql", import.meta.url),
   "utf8",
 );
+const futureRecurringStatusMigration = readFileSync(
+  new URL("../prisma/migrations/20260825143000_fix_future_recurring_paid_status/migration.sql", import.meta.url),
+  "utf8",
+);
 
 test("schema contains required financial models", () => {
   [
@@ -85,6 +89,19 @@ test("driver daily earnings support idempotent real fuel costs and net profit", 
   assert.match(driverService, /fuelExpenseId: existing\?\.fuelExpenseId/);
   assert.match(earningPanel, /Gasolina gasta no dia/);
   assert.match(earningPanel, /Lucro líquido/);
+});
+
+test("future recurring occurrences do not contaminate account balances", () => {
+  const transactionStatus = readFileSync(new URL("../src/lib/transaction-status.ts", import.meta.url), "utf8");
+  const incomeService = readFileSync(new URL("../src/services/income-service.ts", import.meta.url), "utf8");
+  const expenseService = readFileSync(new URL("../src/services/expense-service.ts", import.meta.url), "utf8");
+
+  assert.match(transactionStatus, /setUTCHours\(0, 0, 0, 0\)/);
+  assert.match(incomeService, /index === 0 \? data\.status/);
+  assert.match(expenseService, /index === 0 \? data\.status/);
+  assert.match(futureRecurringStatusMigration, /COALESCE\("dueDate", "date"\) > CURRENT_TIMESTAMP/);
+  assert.match(futureRecurringStatusMigration, /SET "status" = 'PENDING'/);
+  assert.match(futureRecurringStatusMigration, /SET "status" = 'PENDING',[\s\S]*"paidAt" = NULL/);
 });
 
 test("personal debt interest migration stores the daily calculation base", () => {
