@@ -1,6 +1,7 @@
 import { CheckCircle2, Download, ShieldCheck, Upload } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
+import { dateToMonthParam, firstParam } from "@/lib/month-param";
 import { Button } from "@/components/ui/button";
 
 const exports = [
@@ -16,7 +17,13 @@ const formats = [
   { value: "pdf", label: "PDF", description: "Para guardar uma cópia visual." },
 ];
 
-export default function ExportacaoPage() {
+type ExportacaoPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function ExportacaoPage({ searchParams }: ExportacaoPageProps) {
+  const params = (await searchParams) ?? {};
+  const month = firstParam(params.month) ?? dateToMonthParam(new Date());
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Importação e exportação" title="Arquivos financeiros" description="Exporte seus dados com poucos cliques e mantenha uma cópia de segurança antes de mudanças importantes." />
@@ -32,7 +39,7 @@ export default function ExportacaoPage() {
               <p className="font-medium">{item.label}</p>
               <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {formats.map((format) => <Button key={format.value} asChild size="sm" variant="outline"><a href={`/api/export?entity=${item.entity}&format=${format.value}`} target="_blank" rel="noreferrer" title={format.description}>{format.label}</a></Button>)}
+                {formats.map((format) => <Button key={format.value} asChild size="sm" variant="outline"><a href={`/api/export?entity=${item.entity}&format=${format.value}&month=${encodeURIComponent(month)}`} target="_blank" rel="noreferrer" title={format.description}>{format.label}</a></Button>)}
               </div>
             </div>
           ))}
