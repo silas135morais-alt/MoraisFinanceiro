@@ -227,7 +227,7 @@ test("fast launch responds immediately and preserves recent choices", () => {
   assert.match(quickAdd, /prioritizeRecentOptions/);
   assert.match(recentPreferences, /count/);
   assert.match(recentPreferences, /lastUsed/);
-  assert.match(dateInput, /getFullYear/);
+  assert.match(dateInput, /getUTCFullYear/);
   assert.match(incomePage, /Este mês/);
   assert.match(expensePage, /Este mês/);
   assert.match(expensePage, /Cartão/);
@@ -279,11 +279,33 @@ test("editing and recovery paths remain explicit", () => {
 });
 
 
+test("card exports and PDFs preserve the complete selected dataset", () => {
+  const exportService = readFileSync(new URL("../src/services/export-service.ts", import.meta.url), "utf8");
+
+  assert.match(exportService, /creditCardPurchase\.findMany/);
+  assert.match(exportService, /installmentNumber/);
+  assert.match(exportService, /doc\.addPage\(\)/);
+  assert.doesNotMatch(exportService, /rows\.slice\(0, 40\)/);
+});
+
+test("monthly closing and recurrence generation remain idempotent", () => {
+  const closingService = readFileSync(new URL("../src/services/month-closing-service.ts", import.meta.url), "utf8");
+  const recurrenceService = readFileSync(new URL("../src/services/recurrence-service.ts", import.meta.url), "utf8");
+
+  assert.match(closingService, /monthClosing\.findUnique/);
+  assert.match(closingService, /prisma\.\$transaction/);
+  assert.match(closingService, /auto-subscription/);
+  assert.match(closingService, /auto-financing/);
+  assert.match(recurrenceService, /recurrenceOccurrenceDate: occurrenceDate/);
+  assert.match(recurrenceService, /existingOccurrence/);
+});
+
 test("diagnostic keeps selected month, debt outflows, and civil dates consistent", () => {
   const diagnosticRoute = readFileSync(new URL("../src/app/api/diagnostico/route.ts", import.meta.url), "utf8");
   const diagnosticPanel = readFileSync(new URL("../src/app/(protected)/app/diagnostico/diagnostic-panel.tsx", import.meta.url), "utf8");
   const earningPanel = readFileSync(new URL("../src/app/(protected)/app/diagnostico/driver-daily-earning-panel.tsx", import.meta.url), "utf8");
   const format = readFileSync(new URL("../src/lib/format.ts", import.meta.url), "utf8");
+  const diagnosticService = readFileSync(new URL("../src/services/diagnostic-service.ts", import.meta.url), "utf8");
 
   assert.match(diagnosticRoute, /searchParams\.get\("month"\)/);
   assert.match(diagnosticRoute, /getFinancialDiagnostic\(await requireUserId\(\), referenceDate\)/);
@@ -294,4 +316,6 @@ test("diagnostic keeps selected month, debt outflows, and civil dates consistent
   assert.match(earningPanel, /month\?: string \| null/);
   assert.match(earningPanel, /month=\$\{encodeURIComponent\(month\)\}/);
   assert.match(format, /timeZone: "UTC"/);
+  assert.match(diagnosticService, /const calculationDate = new Date\(\)/);
+  assert.match(diagnosticService, /calculatePersonalDebtBalance\(item, calculationDate\)/);
 });
