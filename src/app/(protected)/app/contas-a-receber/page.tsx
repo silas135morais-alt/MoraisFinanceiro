@@ -26,7 +26,7 @@ export default async function ContasAReceberPage() {
       <PageHeader
         eyebrow="Contas a receber"
         title="Recebimentos futuros"
-        description="Esta tela mostra automaticamente receitas pendentes, previstas e atrasadas. Use o botao abaixo para cadastrar uma receita futura."
+        description="Esta tela usa janelas operacionais a partir de hoje: recebendo hoje, próximos 7 dias e restante do mês corrente. O mês global não altera essas faixas."
       />
       <IncomeCreateAction
         accounts={accounts.map((account) => ({ id: account.id, name: account.name }))}
@@ -35,7 +35,7 @@ export default async function ContasAReceberPage() {
       />
       <QuickSection title="Recebendo hoje" items={data.today} />
       <QuickSection title="Esta semana" items={data.week} />
-      <QuickSection title="Este mes" items={data.month} />
+      <QuickSection title="Restante do mês corrente" items={data.month} />
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <h3 className="mb-4 font-semibold">Marcar recebimento</h3>
         <div className="grid gap-2">
