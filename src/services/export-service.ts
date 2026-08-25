@@ -36,15 +36,20 @@ async function getRows(userId: string, entity: ExportEntity, referenceDate?: Dat
   }
 
   if (entity === "cards") {
-    const rows = await prisma.creditCard.findMany({ where: { userId } });
+    const rows = await prisma.creditCardPurchase.findMany({
+      where: { userId, ...(range ? { date: { gte: range.startsAt, lte: range.endsAt } } : {}) },
+      include: { card: true, category: true },
+      orderBy: { date: "asc" },
+    });
     return rows.map((row) => ({
-      banco: row.bank,
-      nome: row.name,
-      limite: row.limit.toNumber(),
-      fechamento: row.closingDay,
-      vencimento: row.dueDay,
-      bandeira: row.brand,
-      final: row.lastFourDigits,
+      cartao: row.card.name,
+      banco: row.card.bank,
+      compra: row.title,
+      categoria: row.category.name,
+      valor: row.amount.toNumber(),
+      data: row.date.toISOString(),
+      parcela: `${row.installmentNumber}/${row.installments}`,
+      status: row.status,
     }));
   }
 
@@ -81,9 +86,26 @@ export async function exportData(userId: string, entity: ExportEntity, format: E
   }
 
   const doc = new jsPDF();
-  doc.text(`MoraisFinanceiro - ${entity}`, 10, 10);
-  rows.slice(0, 40).forEach((row, index) => {
-    doc.text(Object.values(row).join(" | ").slice(0, 110), 10, 20 + index * 7);
-  });
+  const headers = rows.length ? Object.keys(rows[0]) : [];
+  const drawHeader = () => {
+    doc.setFontSize(9);
+    doc.text(`MoraisFinanceiro - ${entity}`, 10, 10);
+    if (headers.length) {
+      doc.setFontSize(7);
+      doc.text(headers.join(" | ").slice(0, 110), 10, 17);
+    }
+  };
+  drawHeader();
+  let y = headers.length ? 24 : 20;
+  doc.setFontSize(7);
+  for (const row of rows) {
+    if (y > 280) {
+      doc.addPage();
+      drawHeader();
+      y = headers.length ? 24 : 20;
+    }
+    doc.text(Object.values(row).join(" | ").slice(0, 110), 10, y);
+    y += 7;
+  }
   return { contentType: "application/pdf", body: Buffer.from(doc.output("arraybuffer")), filename: `${entity}.pdf` };
 }
