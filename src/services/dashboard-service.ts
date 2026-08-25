@@ -32,16 +32,9 @@ function buildWeeklyCashFlow(transactions: ChartTransaction[], startsAt: Date, e
 export async function getDashboard(userId: string, date = new Date()) {
   const { startsAt, endsAt } = getMonthRange(date);
 
-  const now = new Date();
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const dueStart = startsAt > today ? startsAt : today;
-  const projectionStart = endsAt < today ? null : startsAt > today ? startsAt : now;
-  const projectionEnd = projectionStart ? new Date(projectionStart) : null;
-  projectionEnd?.setUTCDate(projectionEnd.getUTCDate() + 30);
-  const futureWindow = projectionStart && projectionEnd
-    ? { OR: [{ dueDate: { gt: projectionStart, lte: projectionEnd } }, { dueDate: null, date: { gt: projectionStart, lte: projectionEnd } }] }
-    : { id: "__no_future_window_for_historical_month__" };
 
   const monthlyExpenseWhere = {
     userId,
@@ -56,6 +49,12 @@ export async function getDashboard(userId: string, date = new Date()) {
     status: { not: "CANCELED" as const },
     OR: [
       { paidAt: { gte: startsAt, lte: endsAt } },
+      { dueDate: { gte: startsAt, lte: endsAt } },
+      { dueDate: null, date: { gte: startsAt, lte: endsAt } },
+    ],
+  };
+  const monthlyFutureWindow = {
+    OR: [
       { dueDate: { gte: startsAt, lte: endsAt } },
       { dueDate: null, date: { gte: startsAt, lte: endsAt } },
     ],
@@ -137,10 +136,10 @@ export async function getDashboard(userId: string, date = new Date()) {
         take: 20,
       }),
       prisma.transaction.findMany({
-        where: { userId, type: "INCOME", status: "PENDING", ...futureWindow },
+        where: { userId, type: "INCOME", status: { in: ["PENDING", "OVERDUE"] }, ...monthlyFutureWindow },
       }),
       prisma.transaction.findMany({
-        where: { userId, type: { in: ["EXPENSE", "CREDIT_CARD_PURCHASE"] }, status: "PENDING", ...futureWindow },
+        where: { userId, type: { in: ["EXPENSE", "CREDIT_CARD_PURCHASE"] }, status: { in: ["PENDING", "OVERDUE"] }, ...monthlyFutureWindow },
       }),
     ]);
 
