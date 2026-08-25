@@ -1,15 +1,15 @@
 import type { TransactionStatus } from "@prisma/client";
 
-function startOfToday() {
+function startOfUtcToday() {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
   return today;
 }
 
 export function resolveTransactionStatus(status: TransactionStatus, dueDate?: Date | string | null) {
   if (status === "PAID" || status === "CANCELED" || !dueDate) return status;
 
-  return new Date(dueDate) < startOfToday() ? "OVERDUE" : "PENDING";
+  return new Date(dueDate) < startOfUtcToday() ? "OVERDUE" : "PENDING";
 }
 
 export function statusLabel(status: TransactionStatus) {
