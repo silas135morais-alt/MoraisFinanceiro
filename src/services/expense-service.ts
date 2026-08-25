@@ -121,7 +121,8 @@ export const expenseService = {
       const dueDate = shouldCreateRecurringSeries
         ? advanceFrequency(data.dueDate ?? data.date, recurrenceFrequency, index)
         : data.dueDate ? addMonths(data.dueDate, index) : addMonths(data.date, index);
-      const status = resolveTransactionStatus(data.status, dueDate);
+      const occurrenceStatus = index === 0 ? data.status : data.status === "CANCELED" ? "CANCELED" : "PENDING";
+      const status = resolveTransactionStatus(occurrenceStatus, dueDate);
       const expense = await prisma.expense.create({
         data: {
           ...data,

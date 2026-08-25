@@ -100,7 +100,8 @@ export const incomeService = {
 
     for (let index = 0; index < occurrenceCount; index += 1) {
       const date = shouldCreateRecurringSeries ? advanceFrequency(data.date, recurrenceFrequency, index) : data.date;
-      const status = resolveTransactionStatus(data.status, date);
+      const occurrenceStatus = index === 0 ? data.status : data.status === "CANCELED" ? "CANCELED" : "PENDING";
+      const status = resolveTransactionStatus(occurrenceStatus, date);
       const income = await prisma.income.create({
         data: {
           ...data,
