@@ -340,6 +340,7 @@ model Expense {
   parentExpense Expense?         @relation("ExpenseInstallments", fields: [parentExpenseId], references: [id], onDelete: Cascade)
   installmentsList Expense[]     @relation("ExpenseInstallments")
   attachments   Attachment[]
+  driverDailyEarningFuel DriverDailyEarning?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -577,10 +578,13 @@ model DriverDailyEarning {
   date         DateTime
   grossAmount  Decimal  @db.Decimal(14, 2)
   targetAmount Decimal  @db.Decimal(14, 2)
+  fuelAmount   Decimal  @default(0) @db.Decimal(14, 2)
+  fuelExpenseId String?  @unique
   notes        String?  @db.Text
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   income Income @relation(fields: [incomeId], references: [id], onDelete: Cascade)
+  fuelExpense Expense? @relation(fields: [fuelExpenseId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
