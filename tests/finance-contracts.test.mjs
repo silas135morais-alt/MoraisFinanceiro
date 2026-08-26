@@ -25,6 +25,10 @@ const futureRecurringStatusMigration = readFileSync(
   new URL("../prisma/migrations/20260825143000_fix_future_recurring_paid_status/migration.sql", import.meta.url),
   "utf8",
 );
+const multipleDriverDateMigration = readFileSync(
+  new URL("../prisma/migrations/20260826120000_allow_multiple_driver_daily_earnings_same_date/migration.sql", import.meta.url),
+  "utf8",
+);
 
 test("schema contains required financial models", () => {
   [
@@ -89,6 +93,30 @@ test("driver daily earnings support idempotent real fuel costs and net profit", 
   assert.match(driverService, /fuelExpenseId: existing\?\.fuelExpenseId/);
   assert.match(earningPanel, /Gasolina gasta no dia/);
   assert.match(earningPanel, /Lucro líquido/);
+});
+
+test("driver daily earnings allow multiple entries on the same date", () => {
+  const driverBlock = schema.match(/model DriverDailyEarning \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const driverService = readFileSync(new URL("../src/services/driver-daily-earning-service.ts", import.meta.url), "utf8");
+
+  assert.doesNotMatch(driverBlock, /@@unique\(\[userId, date\]\)/);
+  assert.match(driverBlock, /@@index\(\[userId, date\]\)/);
+  assert.match(multipleDriverDateMigration, /DROP INDEX IF EXISTS "DriverDailyEarning_userId_date_key"/);
+  assert.match(driverService, /data\.id \? await prisma\.driverDailyEarning\.findFirst/);
+  assert.doesNotMatch(driverService, /userId_date: \{ userId, date \}/);
+  assert.match(driverService, /orderBy: \[\{ date: "desc" \}, \{ createdAt: "desc" \}, \{ id: "desc" \}\]/);
+  assert.match(driverService, /const workedDates = new Set/);
+});
+
+test("income summary aggregates all monthly records beyond the visible page", () => {
+  const incomeService = readFileSync(new URL("../src/services/income-service.ts", import.meta.url), "utf8");
+  const incomePage = readFileSync(new URL("../src/app/(protected)/app/receitas/page.tsx", import.meta.url), "utf8");
+
+  assert.match(incomeService, /async summary\(userId: string/);
+  assert.match(incomeService, /prisma\.income\.aggregate\(/);
+  assert.match(incomeService, /status: \{ in: \["PENDING", "OVERDUE"\] \}/);
+  assert.match(incomePage, /incomeService\.summary\(userId, incomeFilters\)/);
+  assert.doesNotMatch(incomePage, /const paidTotal = data\.items/);
 });
 
 test("future recurring occurrences do not contaminate account balances", () => {
