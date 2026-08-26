@@ -23,47 +23,51 @@ function advanceFrequency(date: Date, frequency: RecurrenceFrequency, times: num
   return next;
 }
 
+function buildIncomeWhere(userId: string, params: ListParams = {}): Prisma.IncomeWhereInput {
+  return {
+    userId,
+    ...(params.q
+      ? {
+          OR: [
+            { title: { contains: params.q, mode: "insensitive" } },
+            { description: { contains: params.q, mode: "insensitive" } },
+            { category: { name: { contains: params.q, mode: "insensitive" } } },
+            { account: { name: { contains: params.q, mode: "insensitive" } } },
+          ],
+        }
+      : {}),
+    ...(params.status ? { status: params.status as TransactionStatus } : {}),
+    ...(params.categoryId ? { categoryId: params.categoryId } : {}),
+    ...(params.accountId ? { accountId: params.accountId } : {}),
+    ...(params.startDate || params.endDate
+      ? {
+          date: {
+            ...(params.startDate ? { gte: new Date(params.startDate) } : {}),
+            ...(params.endDate ? { lte: new Date(params.endDate) } : {}),
+          },
+        }
+      : {}),
+    ...(params.minAmount || params.maxAmount
+      ? {
+          amount: {
+            ...(params.minAmount ? { gte: Number(params.minAmount) } : {}),
+            ...(params.maxAmount ? { lte: Number(params.maxAmount) } : {}),
+          },
+        }
+      : {}),
+  };
+}
+
 export const incomeService = {
   async list(userId: string, params: ListParams = {}) {
     const { skip, take, page, pageSize } = getPagination(params);
-    const incomeWhere: Prisma.IncomeWhereInput = {
-      userId,
-      ...(params.q
-        ? {
-            OR: [
-              { title: { contains: params.q, mode: "insensitive" } },
-              { description: { contains: params.q, mode: "insensitive" } },
-              { category: { name: { contains: params.q, mode: "insensitive" } } },
-              { account: { name: { contains: params.q, mode: "insensitive" } } },
-            ],
-          }
-        : {}),
-      ...(params.status ? { status: params.status as TransactionStatus } : {}),
-      ...(params.categoryId ? { categoryId: params.categoryId } : {}),
-      ...(params.accountId ? { accountId: params.accountId } : {}),
-      ...(params.startDate || params.endDate
-        ? {
-            date: {
-              ...(params.startDate ? { gte: new Date(params.startDate) } : {}),
-              ...(params.endDate ? { lte: new Date(params.endDate) } : {}),
-            },
-          }
-        : {}),
-      ...(params.minAmount || params.maxAmount
-        ? {
-            amount: {
-              ...(params.minAmount ? { gte: Number(params.minAmount) } : {}),
-              ...(params.maxAmount ? { lte: Number(params.maxAmount) } : {}),
-            },
-          }
-        : {}),
-    };
+    const incomeWhere = buildIncomeWhere(userId, params);
 
     const [items, total] = await Promise.all([
       prisma.income.findMany({
         where: incomeWhere,
         include: { category: true, account: true, attachments: true, driverDailyEarning: { select: { id: true } } },
-        orderBy: { date: "desc" },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
         skip,
         take,
       }),
@@ -71,6 +75,18 @@ export const incomeService = {
     ]);
 
     return { items, page, pageSize, total };
+  },
+
+  async summary(userId: string, params: ListParams = {}) {
+    const incomeWhere = buildIncomeWhere(userId, params);
+    const [paid, receivable, total] = await Promise.all([
+      prisma.income.aggregate({ where: { ...incomeWhere, status: "PAID" }, _sum: { amount: true } }),
+      prisma.income.aggregate({ where: { ...incomeWhere, status: { in: ["PENDING", "OVERDUE"] } }, _sum: { amount: true } }),
+      prisma.income.count({ where: incomeWhere }),
+    ]);
+    const paidTotal = Number(paid._sum.amount ?? 0);
+    const receivableTotal = Number(receivable._sum.amount ?? 0);
+    return { paidTotal, receivableTotal, monthlyTotal: paidTotal + receivableTotal, total };
   },
 
   async create(userId: string, payload: unknown, options: CreateIncomeOptions = {}) {

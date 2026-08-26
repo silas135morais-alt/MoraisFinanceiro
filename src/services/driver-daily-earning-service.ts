@@ -24,25 +24,24 @@ type DailyEntry = {
 };
 
 function businessDate(date: Date) {
-  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0, 0);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0, 0));
 }
 
 function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0));
 }
 
 function endOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 }
 
 function endOfToday() {
   const today = new Date();
-  today.setHours(23, 59, 59, 999);
-  return today;
+  return new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
 }
 
 function dateLabel(date: Date) {
-  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
 function serialize(entry: DailyEntry) {
@@ -152,19 +151,20 @@ export const driverDailyEarningService = {
       prisma.driverDailyEarning.findMany({
         where: { userId, date: { gte: start, lte: end } },
         include: { income: { select: { accountId: true, account: { select: { name: true } } } } },
-        orderBy: { date: "desc" },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       }),
       getDriverProfile(userId),
     ]);
     const entries = items.map((item) => serialize(item as DailyEntry));
     const dailyTarget = Number(profile.dailyGrossTarget);
+    const workedDates = new Set(entries.map((entry) => entry.date.slice(0, 10)));
     const grossTotal = entries.reduce((sum, item) => sum + item.grossAmount, 0);
     const fuelTotal = entries.reduce((sum, item) => sum + item.fuelAmount, 0);
     const targetTotal = entries.reduce((sum, item) => sum + item.targetAmount, 0);
     return {
-      month: `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}`,
+      month: `${referenceDate.getUTCFullYear()}-${String(referenceDate.getUTCMonth() + 1).padStart(2, "0")}`,
       dailyTarget,
-      daysWorked: entries.length,
+      daysWorked: workedDates.size,
       grossTotal,
       fuelTotal,
       netTotal: grossTotal - fuelTotal,
@@ -191,9 +191,7 @@ export const driverDailyEarningService = {
     const targetAmount = Number(profile.dailyGrossTarget);
     const fuelAmount = Number(data.fuelAmount ?? 0);
     const title = "99 — realizado do dia";
-    const existing = data.id
-      ? await prisma.driverDailyEarning.findFirst({ where: { id: data.id, userId } })
-      : await prisma.driverDailyEarning.findUnique({ where: { userId_date: { userId, date } } });
+    const existing = data.id ? await prisma.driverDailyEarning.findFirst({ where: { id: data.id, userId } }) : null;
     if (data.id && !existing) throw new Error("Registro diário não encontrado.");
     const recordedTarget = existing ? Number(existing.targetAmount) : targetAmount;
     let incomeId: string;
