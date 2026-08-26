@@ -134,8 +134,9 @@ model User {
   subscriptions           Subscription[]
   financings              Financing[]
   personalDebts           PersonalDebt[]
-  driverProfile           DriverProfile?
-  driverDailyEarnings     DriverDailyEarning[]
+  driverProfile             DriverProfile?
+  driverDailyEarnings        DriverDailyEarning[]
+  monthlyOpeningAdjustments  MonthlyOpeningAdjustment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -190,7 +191,8 @@ model FinancialAccount {
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   incomes      Income[]
   expenses     Expense[]
-  transactions Transaction[]
+  transactions               Transaction[]
+  monthlyOpeningAdjustments  MonthlyOpeningAdjustment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -237,8 +239,9 @@ model Month {
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   budgets      Budget[]
-  transactions Transaction[]
-  closings     MonthClosing[]
+  transactions              Transaction[]
+  closings                  MonthClosing[]
+  openingAdjustments        MonthlyOpeningAdjustment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -508,6 +511,25 @@ model RecurringTransaction {
   @@index([userId, seriesId])
 }
 
+model MonthlyOpeningAdjustment {
+  id        String   @id @default(cuid())
+  userId    String
+  monthId   String
+  accountId String
+  amount    Decimal  @db.Decimal(14, 2)
+  note      String?
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month  Month            @relation(fields: [monthId], references: [id], onDelete: Cascade)
+  account FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, monthId, accountId])
+  @@index([userId, monthId])
+}
+
 model MonthClosing {
   id        String @id @default(cuid())
   userId    String
@@ -589,7 +611,6 @@ model DriverDailyEarning {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, date])
   @@index([userId, date])
 }
 
