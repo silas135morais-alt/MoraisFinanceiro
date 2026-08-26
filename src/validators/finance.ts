@@ -150,7 +150,7 @@ export const monthClosingSchema = z.object({
 });
 
 export const monthlyOpeningAdjustmentSchema = z.object({
-  month: z.string().regex(/^\\d{4}-(0[1-9]|1[0-2])$/),
+  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
   accountId: z.string().min(1),
   amount: z.coerce.number().finite(),
   note: z.string().max(300).optional().nullable(),
@@ -164,7 +164,7 @@ export const importSchema = z.object({
 export const exportSchema = z.object({
   entity: z.enum(["incomes", "expenses", "cards", "reports"]).default("reports"),
   format: z.enum(["csv", "xlsx", "pdf"]).default("csv"),
-  month: z.string().regex(/^\\d{4}-(0[1-9]|1[0-2])$/).optional(),
+  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
 });
 
 export const budgetSchema = z.object({
