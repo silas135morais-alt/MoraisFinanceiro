@@ -71,7 +71,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <MonthlyOpeningAdjustmentPanel
         month={`${selectedDate.getUTCFullYear()}-${String(selectedDate.getUTCMonth() + 1).padStart(2, "0")}`}
-        accounts={dashboard.accounts.map((account) => ({ id: account.id, name: account.name }))}
+        accounts={dashboard.accounts.map((account: { id: string; name: string }) => ({ id: account.id, name: account.name }))}
         adjustments={dashboard.openingAdjustments}
       />
 
