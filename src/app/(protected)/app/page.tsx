@@ -130,7 +130,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </Panel>
 
         <Panel title="Extrato recente do mes">
-          {dashboard.latest.length ? dashboard.latest.map((entry) => (
+          {dashboard.latest.length ? dashboard.latest.map((entry: { id: string; title: string; category?: { name: string } | null; date: Date; amount: unknown; type: string }) => (
             <ListItem
               key={entry.id}
               title={entry.title}
