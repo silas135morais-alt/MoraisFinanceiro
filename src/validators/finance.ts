@@ -149,6 +149,13 @@ export const monthClosingSchema = z.object({
   monthId: z.string().min(1),
 });
 
+export const monthlyOpeningAdjustmentSchema = z.object({
+  month: z.string().regex(/^\\d{4}-(0[1-9]|1[0-2])$/),
+  accountId: z.string().min(1),
+  amount: z.coerce.number().finite(),
+  note: z.string().max(300).optional().nullable(),
+});
+
 export const importSchema = z.object({
   entity: z.enum(["incomes", "expenses"]),
   content: z.string().min(1),
