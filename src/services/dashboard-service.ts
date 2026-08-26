@@ -68,6 +68,7 @@ export async function getDashboard(userId: string, date = new Date()) {
     investments,
     assets,
     accounts,
+    openingAdjustments,
     upcoming,
     latest,
     overdue,
@@ -107,6 +108,14 @@ export async function getDashboard(userId: string, date = new Date()) {
       prisma.investment.findMany({ where: { userId, isArchived: false }, include: { contributions: true } }),
       prisma.asset.findMany({ where: { userId, isArchived: false } }),
       accountService.listWithBalances(userId),
+      prisma.monthlyOpeningAdjustment.findMany({
+        where: {
+          userId,
+          month: { year: startsAt.getUTCFullYear(), month: startsAt.getUTCMonth() + 1 },
+        },
+        include: { account: { select: { name: true } } },
+        orderBy: { account: { name: "asc" } },
+      }),
       prisma.transaction.findMany({
         where: {
           userId,
@@ -171,10 +180,18 @@ export async function getDashboard(userId: string, date = new Date()) {
     return sum + Math.max(investment.currentValue.toNumber(), contributionTotal);
   }, 0);
   const assetsTotal = assets.reduce((sum, asset) => sum + asset.value.toNumber(), 0);
-  const cashTotal = accounts.reduce((sum, account) => sum + account.balance, 0);
+  const openingAdjustmentTotal = openingAdjustments.reduce((sum, adjustment) => sum + adjustment.amount.toNumber(), 0);
+  const openingAdjustmentByAccount = new Map(
+    openingAdjustments.map((adjustment) => [adjustment.accountId, adjustment.amount.toNumber()]),
+  );
+  const accountsWithOpeningAdjustments = accounts.map((account) => ({
+    ...account,
+    balance: account.balance + (openingAdjustmentByAccount.get(account.id) ?? 0),
+  }));
+  const cashTotal = accountsWithOpeningAdjustments.reduce((sum, account) => sum + account.balance, 0);
   const futureIncomeTotal = futureIncome.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const futureExpenseTotal = futureExpense.reduce((sum, item) => sum + item.amount.toNumber(), 0);
-  const realizedMonthTotal = incomeTotal - paidOutflowTotal;
+  const realizedMonthTotal = incomeTotal - paidOutflowTotal + openingAdjustmentTotal;
   const balanceTotal = realizedMonthTotal;
   const summarizedUpcoming = await summarizeCreditCardInvoices(userId, upcoming);
   const weeklyCashFlow = buildWeeklyCashFlow(paidMonthTransactions, startsAt, endsAt);
@@ -194,6 +211,7 @@ export async function getDashboard(userId: string, date = new Date()) {
       dueSoon: summarizedUpcoming.length,
       overdue: overdue.length,
       projectedBalance: balanceTotal + futureIncomeTotal - futureExpenseTotal,
+      openingAdjustmentTotal,
       futureIncomes: futureIncomeTotal,
       futureExpenses: futureExpenseTotal,
       incomeReceived: incomeReceivedTotal,
@@ -203,6 +221,9 @@ export async function getDashboard(userId: string, date = new Date()) {
       paidInvestments: paidInvestmentsTotal,
       paidOutflows: paidOutflowTotal,
       balanceBreakdown: [
+        ...(openingAdjustmentTotal !== 0
+          ? [{ label: "Saldo inicial do mês", amount: openingAdjustmentTotal, kind: "in" }]
+          : []),
         { label: "Receitas recebidas", amount: incomeReceivedTotal, kind: "in" },
         { label: "Resgates", amount: redemptionsTotal, kind: "in" },
         { label: "Despesas e contas pagas", amount: paidExpensesTotal, kind: "out" },
@@ -210,7 +231,14 @@ export async function getDashboard(userId: string, date = new Date()) {
         { label: "Aportes em investimentos", amount: paidInvestmentsTotal, kind: "out" },
       ],
     },
-    accounts,
+    accounts: accountsWithOpeningAdjustments,
+    openingAdjustments: openingAdjustments.map((adjustment) => ({
+      id: adjustment.id,
+      accountId: adjustment.accountId,
+      accountName: adjustment.account.name,
+      amount: adjustment.amount.toNumber(),
+      note: adjustment.note,
+    })),
     upcoming: summarizedUpcoming,
     latest,
     charts: {

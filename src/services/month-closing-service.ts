@@ -26,7 +26,7 @@ function toJsonSafe(value: unknown) {
 export const monthClosingService = {
   async preview(userId: string, monthId: string) {
     const month = await prisma.month.findUniqueOrThrow({ where: { id: monthId, userId } });
-    const [incomes, expenses, recurring, subscriptions, financings, budgets, cards, categories, driver] =
+    const [incomes, expenses, recurring, subscriptions, financings, budgets, cards, categories, driver, openingAdjustments] =
       await Promise.all([
         prisma.income.findMany({
           where: { userId, status: { not: "CANCELED" }, date: { gte: month.startsAt, lte: month.endsAt } },
@@ -43,6 +43,7 @@ export const monthClosingService = {
         prisma.creditCard.count({ where: { userId, isArchived: false } }),
         prisma.category.count({ where: { userId, isActive: true } }),
         driverDailyEarningService.list(userId, month.startsAt),
+        prisma.monthlyOpeningAdjustment.findMany({ where: { userId, monthId }, select: { amount: true } }),
       ]);
 
     const incomeTotal = incomes.reduce((sum, item) => sum + item.amount.toNumber(), 0);
@@ -51,6 +52,7 @@ export const monthClosingService = {
     const expensePaid = expenses.filter((item) => item.status === "PAID").reduce((sum, item) => sum + item.amount.toNumber(), 0);
     const incomePending = incomes.filter((item) => item.status !== "PAID").reduce((sum, item) => sum + item.amount.toNumber(), 0);
     const expensePending = expenses.filter((item) => item.status !== "PAID").reduce((sum, item) => sum + item.amount.toNumber(), 0);
+    const openingAdjustmentTotal = openingAdjustments.reduce((sum, item) => sum + item.amount.toNumber(), 0);
 
     return {
       month,
@@ -61,8 +63,9 @@ export const monthClosingService = {
         expenseTotal,
         expensePaid,
         expensePending,
-        realizedSurplus: incomeReceived - expensePaid,
-        projectedSurplus: incomeTotal - expenseTotal,
+        openingAdjustmentTotal,
+        realizedSurplus: incomeReceived - expensePaid + openingAdjustmentTotal,
+        projectedSurplus: incomeTotal - expenseTotal + openingAdjustmentTotal,
       },
       driver: {
         daysWorked: driver.daysWorked,
