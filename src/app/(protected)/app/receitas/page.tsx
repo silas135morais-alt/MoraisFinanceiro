@@ -25,24 +25,19 @@ export default async function ReceitasPage({ searchParams }: ReceitasPageProps) 
   const userId = await requireUserId();
   const params = (await searchParams) ?? {};
   const { startsAt, endsAt } = getMonthRange(monthParamToDate(firstParam(params.month)));
-  const [data, categories, accounts] = await Promise.all([
-    incomeService.list(userId, {
-      pageSize: 20,
-      q: firstParam(params.q),
-      status: firstParam(params.status),
-      startDate: startsAt.toISOString(),
-      endDate: endsAt.toISOString(),
-    }),
+  const incomeFilters = {
+    q: firstParam(params.q),
+    status: firstParam(params.status),
+    startDate: startsAt.toISOString(),
+    endDate: endsAt.toISOString(),
+  };
+  const [data, summary, categories, accounts] = await Promise.all([
+    incomeService.list(userId, { pageSize: 20, ...incomeFilters }),
+    incomeService.summary(userId, incomeFilters),
     categoryService.list(userId, "INCOME"),
     accountService.list(userId),
   ]);
-  const paidTotal = data.items
-    .filter((income) => income.status === "PAID")
-    .reduce((sum, income) => sum + Number(income.amount), 0);
-  const receivableTotal = data.items
-    .filter((income) => income.status === "PENDING" || income.status === "OVERDUE")
-    .reduce((sum, income) => sum + Number(income.amount), 0);
-  const monthlyTotal = paidTotal + receivableTotal;
+  const { paidTotal, receivableTotal, monthlyTotal } = summary;
   const accountOptions = accounts.map((account) => ({ id: account.id, name: account.name }));
   const categoryOptions = categories.map((category) => ({ id: category.id, name: category.name }));
   const rows = data.items.map((income) => [
