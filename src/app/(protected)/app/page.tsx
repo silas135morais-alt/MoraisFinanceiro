@@ -5,6 +5,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { DashboardChart } from "@/components/shared/dashboard-chart";
 import { MonthSelector } from "@/components/shared/month-selector";
+import { MonthlyOpeningAdjustmentPanel } from "./monthly-opening-adjustment-panel";
 import { SummaryCard } from "@/components/shared/summary-card";
 import { currency, shortDate } from "@/lib/format";
 import { firstParam, monthParamToDate } from "@/lib/month-param";
@@ -66,6 +67,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         projectedBalance={dashboard.summary.projectedBalance}
         receivedIncomes={dashboard.summary.incomes}
         currentInvoice={dashboard.summary.currentInvoice}
+      />
+
+      <MonthlyOpeningAdjustmentPanel
+        month={`${selectedDate.getUTCFullYear()}-${String(selectedDate.getUTCMonth() + 1).padStart(2, "0")}`}
+        accounts={dashboard.accounts.map((account) => ({ id: account.id, name: account.name }))}
+        adjustments={dashboard.openingAdjustments}
       />
 
       <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
