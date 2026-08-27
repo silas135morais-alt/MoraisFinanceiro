@@ -49,9 +49,14 @@ export const accountService = {
           return transaction.type === "INCOME" ? sum + amount : sum - amount;
         }, 0);
 
+      const openingAdjustment = openingAdjustmentByAccount.get(account.id) ?? 0;
+      const monthlyOpeningBalance = account.initialBalance.toNumber() + openingAdjustment;
+
       return {
         ...account,
-        balance: account.initialBalance.toNumber() + movements + (openingAdjustmentByAccount.get(account.id) ?? 0),
+        openingAdjustment,
+        monthlyOpeningBalance,
+        balance: monthlyOpeningBalance + movements,
       };
     });
   },
