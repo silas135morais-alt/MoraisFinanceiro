@@ -10,8 +10,8 @@ export const accountService = {
     });
   },
 
-  async listWithBalances(userId: string) {
-    const [accounts, transactions] = await Promise.all([
+  async listWithBalances(userId: string, referenceDate?: Date) {
+    const [accounts, transactions, openingAdjustments] = await Promise.all([
       prisma.financialAccount.findMany({
         where: { userId, isArchived: false },
         orderBy: [{ isDefault: "desc" }, { name: "asc" }],
@@ -25,7 +25,20 @@ export const accountService = {
         },
         select: { accountId: true, amount: true, type: true },
       }),
+      referenceDate
+        ? prisma.monthlyOpeningAdjustment.findMany({
+            where: {
+              userId,
+              month: { year: referenceDate.getUTCFullYear(), month: referenceDate.getUTCMonth() + 1 },
+            },
+            select: { accountId: true, amount: true },
+          })
+        : Promise.resolve([]),
     ]);
+
+    const openingAdjustmentByAccount = new Map(
+      openingAdjustments.map((adjustment) => [adjustment.accountId, adjustment.amount.toNumber()]),
+    );
 
     return accounts.map((account) => {
       const movements = transactions
@@ -38,7 +51,7 @@ export const accountService = {
 
       return {
         ...account,
-        balance: account.initialBalance.toNumber() + movements,
+        balance: account.initialBalance.toNumber() + movements + (openingAdjustmentByAccount.get(account.id) ?? 0),
       };
     });
   },

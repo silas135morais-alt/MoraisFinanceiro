@@ -107,7 +107,7 @@ export async function getDashboard(userId: string, date = new Date()) {
       }),
       prisma.investment.findMany({ where: { userId, isArchived: false }, include: { contributions: true } }),
       prisma.asset.findMany({ where: { userId, isArchived: false } }),
-      accountService.listWithBalances(userId),
+      accountService.listWithBalances(userId, date),
       prisma.monthlyOpeningAdjustment.findMany({
         where: {
           userId,
@@ -181,14 +181,7 @@ export async function getDashboard(userId: string, date = new Date()) {
   }, 0);
   const assetsTotal = assets.reduce((sum, asset) => sum + asset.value.toNumber(), 0);
   const openingAdjustmentTotal = openingAdjustments.reduce((sum, adjustment) => sum + adjustment.amount.toNumber(), 0);
-  const openingAdjustmentByAccount = new Map(
-    openingAdjustments.map((adjustment) => [adjustment.accountId, adjustment.amount.toNumber()]),
-  );
-  const accountsWithOpeningAdjustments = accounts.map((account) => ({
-    ...account,
-    balance: account.balance + (openingAdjustmentByAccount.get(account.id) ?? 0),
-  }));
-  const cashTotal = accountsWithOpeningAdjustments.reduce((sum, account) => sum + account.balance, 0);
+  const cashTotal = accounts.reduce((sum, account) => sum + account.balance, 0);
   const futureIncomeTotal = futureIncome.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const futureExpenseTotal = futureExpense.reduce((sum, item) => sum + item.amount.toNumber(), 0);
   const realizedMonthTotal = incomeTotal - paidOutflowTotal + openingAdjustmentTotal;
@@ -231,7 +224,7 @@ export async function getDashboard(userId: string, date = new Date()) {
         { label: "Aportes em investimentos", amount: paidInvestmentsTotal, kind: "out" },
       ],
     },
-    accounts: accountsWithOpeningAdjustments,
+    accounts,
     openingAdjustments: openingAdjustments.map((adjustment) => ({
       id: adjustment.id,
       accountId: adjustment.accountId,
