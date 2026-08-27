@@ -85,13 +85,22 @@ export async function getFinancialDiagnostic(userId: string, referenceDate = new
   const [accounts, receivedIncome, futureIncome, futureOutflow, upcomingTransactions, financings, personalDebts, driverProfile] = await Promise.all([
     accountService.listWithBalances(userId, referenceDate),
     prisma.transaction.findMany({
-      where: { userId, type: "INCOME", status: "PAID", date: { gte: start, lte: end } },
+      where: {
+        userId,
+        type: "INCOME",
+        status: "PAID",
+        OR: [
+          { paidAt: { gte: start, lte: end } },
+          { paidAt: null, date: { gte: start, lte: end } },
+          { paidAt: null, dueDate: { gte: start, lte: end } },
+        ],
+      },
     }),
     prisma.transaction.findMany({
       where: {
         userId,
         type: "INCOME",
-        status: "PENDING",
+        status: { in: ["PENDING", "OVERDUE"] },
         OR: [{ dueDate: { gte: start, lte: end } }, { dueDate: null, date: { gte: start, lte: end } }],
       },
     }),

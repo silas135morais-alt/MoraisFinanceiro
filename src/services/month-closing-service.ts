@@ -114,7 +114,10 @@ export const monthClosingService = {
       },
     });
 
-    const budgets = await prisma.budget.findMany({ where: { userId, monthId } });
+    const [budgets, openingAdjustments] = await Promise.all([
+      prisma.budget.findMany({ where: { userId, monthId } }),
+      prisma.monthlyOpeningAdjustment.findMany({ where: { userId, monthId } }),
+    ]);
     await Promise.all(
       budgets.map((budget) =>
         prisma.budget.upsert({
@@ -138,6 +141,30 @@ export const monthClosingService = {
     const summary = toJsonSafe(preview);
     const confirmedAt = new Date();
     const closing = await prisma.$transaction(async (tx) => {
+      const carryNotePrefix = `[carry:${month.id}]`;
+      for (const adjustment of openingAdjustments) {
+        const existingAdjustment = await tx.monthlyOpeningAdjustment.findUnique({
+          where: { userId_monthId_accountId: { userId, monthId: nextMonth.id, accountId: adjustment.accountId } },
+          select: { id: true, note: true },
+        });
+        if (!existingAdjustment) {
+          await tx.monthlyOpeningAdjustment.create({
+            data: {
+              userId,
+              monthId: nextMonth.id,
+              accountId: adjustment.accountId,
+              amount: adjustment.amount,
+              note: `${carryNotePrefix} Saldo carregado de ${month.label}`,
+            },
+          });
+        } else if (existingAdjustment.note?.startsWith(carryNotePrefix)) {
+          await tx.monthlyOpeningAdjustment.update({
+            where: { id: existingAdjustment.id },
+            data: { amount: adjustment.amount, note: `${carryNotePrefix} Saldo carregado de ${month.label}` },
+          });
+        }
+      }
+
       await tx.month.update({ where: { id: month.id, userId }, data: { status: "CLOSED", closedAt: confirmedAt } });
       return tx.monthClosing.create({
         data: {

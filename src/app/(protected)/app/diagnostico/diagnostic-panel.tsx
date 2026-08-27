@@ -180,8 +180,8 @@ export function DiagnosticPanel() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Diagnóstico</p>
-            <h2 className="mt-1 text-2xl font-semibold sm:text-3xl">O que posso pagar nos próximos 30 dias?</h2>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Saldo confirmado + recebimentos previstos − despesas previstas.</p>
+            <h2 className="mt-1 text-2xl font-semibold sm:text-3xl">O que posso pagar no mês selecionado?</h2>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Saldo disponível + recebimentos pendentes − compromissos previstos no período.</p>
           </div>
           <Link href="/app/despesas?view=debts" className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline">
             Ver dívidas <ArrowRight className="size-4" />
@@ -190,8 +190,8 @@ export function DiagnosticPanel() {
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Saldo real hoje" value={currency(diagnostic.currentCash)} helper="Dinheiro confirmado" icon={<Gauge className="size-4" />} />
-        <MetricCard label="Recebimentos previstos" value={currency(diagnostic.futureIncome30d)} helper="Ainda não recebidos" icon={<CheckCircle2 className="size-4" />} />
+        <MetricCard label="Saldo disponível" value={currency(diagnostic.currentCash)} helper="Dinheiro confirmado e ajustes do mês" icon={<Gauge className="size-4" />} />
+        <MetricCard label="Recebimentos pendentes" value={currency(diagnostic.futureIncome30d)} helper="Pendentes ou vencidos no período" icon={<CheckCircle2 className="size-4" />} />
         <MetricCard label="Saídas previstas" value={currency(diagnostic.futureOutflow30d)} helper={`${currency(diagnostic.transactionOutflow30d)} contas + ${currency(diagnostic.personalDebtDue30d)} dívidas`} icon={<CalendarDays className="size-4" />} />
         <MetricCard label="Disponível seguro" value={currency(diagnostic.safeCash30d)} helper={`Reserva de ${currency(diagnostic.minimumReserve)}`} icon={<ShieldCheck className="size-4" />} />
       </section>
@@ -201,8 +201,8 @@ export function DiagnosticPanel() {
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="font-semibold">Caixa projetado</h3>
-            <p className="mt-1 text-sm text-muted-foreground">O valor considera apenas o que está confirmado ou previsto.</p>
+            <h3 className="font-semibold">Caixa projetado do período</h3>
+            <p className="mt-1 text-sm text-muted-foreground">O valor considera apenas o que está confirmado ou previsto no mês selecionado.</p>
           </div>
           <p className="text-2xl font-semibold">{currency(diagnostic.projectedCash30d)}</p>
         </div>

@@ -29,6 +29,10 @@ const multipleDriverDateMigration = readFileSync(
   new URL("../prisma/migrations/20260826120000_allow_multiple_driver_daily_earnings_same_date/migration.sql", import.meta.url),
   "utf8",
 );
+const monthlyOpeningAdjustmentMigration = readFileSync(
+  new URL("../prisma/migrations/20260826150000_add_monthly_opening_adjustments/migration.sql", import.meta.url),
+  "utf8",
+);
 
 test("schema contains required financial models", () => {
   [
@@ -55,6 +59,7 @@ test("schema contains required financial models", () => {
     "DriverProfile",
     "DriverDailyEarning",
     "PersonalDebt",
+    "MonthlyOpeningAdjustment",
   ].forEach((model) => assert.match(schema, new RegExp(`model ${model} \\{`)));
 });
 
@@ -117,6 +122,25 @@ test("income summary aggregates all monthly records beyond the visible page", ()
   assert.match(incomeService, /status: \{ in: \["PENDING", "OVERDUE"\] \}/);
   assert.match(incomePage, /incomeService\.summary\(userId, incomeFilters\)/);
   assert.doesNotMatch(incomePage, /const paidTotal = data\.items/);
+});
+
+test("monthly opening adjustments stay scoped to the selected month and account", () => {
+  const adjustmentSchema = schema.match(/model MonthlyOpeningAdjustment \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const adjustmentService = readFileSync(new URL("../src/services/monthly-opening-adjustment-service.ts", import.meta.url), "utf8");
+  const dashboardService = readFileSync(new URL("../src/services/dashboard-service.ts", import.meta.url), "utf8");
+  const closingService = readFileSync(new URL("../src/services/month-closing-service.ts", import.meta.url), "utf8");
+  const dashboardPage = readFileSync(new URL("../src/app/(protected)/app/page.tsx", import.meta.url), "utf8");
+  const adjustmentPanel = readFileSync(new URL("../src/app/(protected)/app/monthly-opening-adjustment-panel.tsx", import.meta.url), "utf8");
+
+  assert.match(adjustmentSchema, /@@unique\(\[userId, monthId, accountId\]\)/);
+  assert.match(monthlyOpeningAdjustmentMigration, /CREATE TABLE "MonthlyOpeningAdjustment"/);
+  assert.match(monthlyOpeningAdjustmentMigration, /FinancialAccount"\("id"\)/);
+  assert.match(adjustmentService, /userId_monthId_accountId/);
+  assert.match(dashboardService, /monthlyOpeningAdjustment\.findMany/);
+  assert.match(dashboardService, /openingAdjustmentTotal/);
+  assert.match(closingService, /openingAdjustmentTotal/);
+  assert.match(dashboardPage, /MonthlyOpeningAdjustmentPanel/);
+  assert.match(adjustmentPanel, /não é receita/);
 });
 
 test("future recurring occurrences do not contaminate account balances", () => {

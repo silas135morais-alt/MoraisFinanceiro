@@ -39,7 +39,7 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryCard title="Entradas do mês" value={currency(preview.totals.incomeTotal)} helper={`${currency(preview.totals.incomeReceived)} recebidos · ${currency(preview.totals.incomePending)} pendentes`} icon={ArrowUpRight} tone="green" />
             <SummaryCard title="Despesas do mês" value={currency(preview.totals.expenseTotal)} helper={`${currency(preview.totals.expensePaid)} pagas · ${currency(preview.totals.expensePending)} pendentes`} icon={ArrowDownRight} tone="rose" />
-            <SummaryCard title="Sobra realizada" value={currency(preview.totals.realizedSurplus)} helper={`Projeção do mês: ${currency(preview.totals.projectedSurplus)}`} icon={WalletCards} tone={preview.totals.realizedSurplus >= 0 ? "blue" : "amber"} />
+            <SummaryCard title="Sobra realizada" value={currency(preview.totals.realizedSurplus)} helper={`${preview.totals.openingAdjustmentTotal ? `Inclui ${currency(preview.totals.openingAdjustmentTotal)} de saldo inicial · ` : ""}Projeção do mês: ${currency(preview.totals.projectedSurplus)}`} icon={WalletCards} tone={preview.totals.realizedSurplus >= 0 ? "blue" : "amber"} />
             <SummaryCard title="Pendências" value={integer(preview.pending.totalCount)} helper={`${preview.pending.incomeCount} a receber · ${preview.pending.expenseCount} a pagar`} icon={CircleAlert} tone={preview.pending.totalCount > 0 ? "amber" : "green"} />
           </section>
 
@@ -70,6 +70,7 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
                 <p><strong className="text-foreground">{integer(preview.willCopy.budgets)}</strong> orçamentos do mês</p>
                 <p><strong className="text-foreground">{integer(preview.willCopy.cards)}</strong> cartões ativos</p>
                 <p><strong className="text-foreground">{integer(preview.willCopy.categories)}</strong> categorias ativas</p>
+                <p><strong className="text-foreground">{currency(preview.totals.openingAdjustmentTotal)}</strong> saldo inicial específico do mês</p>
               </div>
             </div>
             <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-5 shadow-sm dark:border-amber-900 dark:bg-amber-950/20">
