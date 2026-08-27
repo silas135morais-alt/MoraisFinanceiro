@@ -24,6 +24,7 @@ export default async function ContasPage({ searchParams }: { searchParams: Promi
   const selectedDate = monthParamToDate(params.month);
   const accounts = await accountService.listWithBalances(userId, selectedDate);
   const total = accounts.reduce((sum, account) => sum + account.balance, 0);
+  const openingTotal = accounts.reduce((sum, account) => sum + account.monthlyOpeningBalance, 0);
   const mainAccount = accounts.find((account) => account.isDefault) ?? accounts[0];
 
   return (
@@ -38,7 +39,13 @@ export default async function ContasPage({ searchParams }: { searchParams: Promi
       <section className="grid gap-4 md:grid-cols-3">
         <SummaryCard title="Total em contas" value={currency(total)} helper={`${accounts.length} conta(s) ativa(s)`} icon={Wallet} tone="emerald" />
         <SummaryCard title="Conta principal" value={mainAccount ? currency(mainAccount.balance) : currency(0)} helper={mainAccount?.name ?? "Nenhuma conta"} icon={Landmark} tone="blue" />
-        <SummaryCard title="Saldo inicial" value={currency(accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0))} helper="Base antes das movimentacoes" icon={PiggyBank} tone="violet" />
+        <SummaryCard
+          title="Saldo inicial do mês"
+          value={currency(openingTotal)}
+          helper={selectedDate ? "Saldo base + ajuste do mês" : "Base antes das movimentacoes"}
+          icon={PiggyBank}
+          tone="violet"
+        />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
@@ -61,14 +68,14 @@ export default async function ContasPage({ searchParams }: { searchParams: Promi
       </section>
 
       <DataTable
-        columns={["Conta", "Tipo", "Saldo inicial", "Saldo atual", "Acoes"]}
+        columns={["Conta", "Tipo", "Saldo inicial do mês", "Saldo atual", "Acoes"]}
         rows={accounts.map((account) => [
           <div key={account.id} className="flex items-center gap-2">
             <span className="size-3 rounded-full" style={{ backgroundColor: account.color }} />
             <span className="font-medium">{account.name}</span>
           </div>,
           typeLabels[account.type] ?? account.type,
-          currency(Number(account.initialBalance)),
+          currency(account.monthlyOpeningBalance),
           currency(account.balance),
           <AccountRowActions
             key={account.id}
