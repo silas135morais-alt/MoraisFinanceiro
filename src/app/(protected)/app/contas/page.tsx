@@ -4,6 +4,7 @@ import { DataTable } from "@/components/shared/data-table";
 import { PageHeader } from "@/components/shared/page-header";
 import { SummaryCard } from "@/components/shared/summary-card";
 import { requireUserId } from "@/lib/auth-guard";
+import { monthParamToDate } from "@/lib/month-param";
 import { currency } from "@/lib/format";
 import { accountService } from "@/services/account-service";
 
@@ -17,8 +18,11 @@ const typeLabels: Record<string, string> = {
   WALLET: "Carteira",
 };
 
-export default async function ContasPage() {
-  const accounts = await accountService.listWithBalances(await requireUserId());
+export default async function ContasPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+  const userId = await requireUserId();
+  const params = await searchParams;
+  const selectedDate = monthParamToDate(params.month);
+  const accounts = await accountService.listWithBalances(userId, selectedDate);
   const total = accounts.reduce((sum, account) => sum + account.balance, 0);
   const mainAccount = accounts.find((account) => account.isDefault) ?? accounts[0];
 
